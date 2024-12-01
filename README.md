@@ -14,10 +14,24 @@ A command-line tool written in Zig that merges source files into a single file w
 ## Installation
 
 ```bash
+# Clone the repository
 git clone [repository-url]
 cd fuze
+
+# Clone dependencies
+mkdir -p deps
+git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
+git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
+
+# Build the project
 zig build
 ```
+
+## Dependencies
+
+- [Zig](https://ziglang.org/) (master)
+- [Tree-sitter](https://tree-sitter.github.io/) (v0.20.8)
+- [Tree-sitter-typescript](https://github.com/tree-sitter/tree-sitter-typescript) (v0.20.1)
 
 ## Usage
 
@@ -41,6 +55,16 @@ Options:
   - Improved import/export dependency resolution
   - Namespace merging and conflict detection
   - Source map preservation
+
+- **Import Optimization**
+  - Move all imports to the top of the file
+  - Remove redundant imports
+  - Sort and group imports by type (built-in, external, internal)
+
+- **Development Experience**
+  - Watch mode for automatic recompilation
+  - Hot reload support
+  - Incremental builds
 
 ## Project Overview
 

@@ -3,17 +3,9 @@
     .version = "0.0.1",
     .minimum_zig_version = "0.13.0",
     .dependencies = .{
-        .@"tree-sitter" = .{
-            .url = "https://github.com/tree-sitter/tree-sitter/archive/refs/tags/v0.20.8.tar.gz",
-            .hash = "1220e09920c0135b236238022e8dc305929d0ab4cd73cb912c088501926248164f1a",
-        },
-        .@"tree-sitter-typescript" = .{
-            .url = "https://github.com/tree-sitter/tree-sitter-typescript/archive/refs/tags/v0.20.1.tar.gz",
-            .hash = "1220e09920c0135b236238022e8dc305929d0ab4cd73cb912c088501926248164f1a",
-        },
         .clap = .{
-            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.9.1.tar.gz",
-            .hash = "122062d301a203d003547b414237229b09a7980095061697349f8bef41be9c30266b",
+            .url = "git+https://github.com/Hejsil/zig-clap#560c8dd72ab25d556123846254040c5bf9ad3ba4",
+            .hash = "12200abadc141099ff2ba5098f7eca9bf84d548dd92ec5827ef323d813d59b049780",
         },
         .@"known-folders" = .{
             .url = "https://github.com/ziglibs/known-folders/archive/refs/heads/master.tar.gz",
@@ -28,7 +20,5 @@
         "build.zig",
         "build.zig.zon",
         "src",
-        "deps/tree-sitter",
-        "deps/tree-sitter-typescript",
     },
 }

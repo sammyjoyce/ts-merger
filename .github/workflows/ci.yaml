@@ -25,6 +25,15 @@ jobs:
         with:
           version: master
 
+      - name: Clone tree-sitter
+        run: |
+          mkdir -p deps
+          git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
+
+      - name: Clone tree-sitter-typescript
+        run: |
+          git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
+
       - name: Build Release
         run: zig build -Doptimize=ReleaseSafe
 
