@@ -104,8 +104,10 @@ pub const TypeScriptParser = struct {
 
     pub fn processNode(self: *Self, allocator: std.mem.Allocator, node: tree_sitter.Node, cursor: *tree_sitter.TreeCursor) parser_mod.ParseError!*ast.Node {
         const node_type = tree_sitter.ts_node_type(node);
-        if (node_type != null) {
-            std.debug.print("Processing node type: {s}\n", .{node_type.?});
+        if (node_type) |type_str| {
+            self.logger.debug("Processing node type: {s}", .{type_str});
+        } else {
+            self.logger.warn("Unknown node type encountered", .{});
         }
 
         // Create AST node
@@ -114,9 +116,10 @@ pub const TypeScriptParser = struct {
 
         // Set node type
         if (node_type) |type_str| {
+            const type_slice = std.mem.span(type_str);
             ast_node.kind = .{
-                .kind = try ast.nodeKindFromString(type_str),
-                .source = try allocator.dupe(u8, std.mem.span(type_str)),
+                .kind = try ast.nodeKindFromString(type_slice),
+                .source = try allocator.dupe(u8, type_slice),
             };
         } else {
             return error.InvalidNodeType;

@@ -27,25 +27,25 @@ pub const Logger = struct {
 
     pub fn debug(self: Logger, comptime format: []const u8, args: anytype) void {
         if (@intFromEnum(self.level) <= @intFromEnum(LogLevel.Debug)) {
-            std.log.debug("{s}: " ++ format, .{self.scope} ++ args);
+            std.log.debug("[{s}] " ++ format, .{self.scope} ++ args);
         }
     }
 
     pub fn info(self: Logger, comptime format: []const u8, args: anytype) void {
         if (@intFromEnum(self.level) <= @intFromEnum(LogLevel.Info)) {
-            std.log.info("{s}: " ++ format, .{self.scope} ++ args);
+            std.log.info("[{s}] " ++ format, .{self.scope} ++ args);
         }
     }
 
     pub fn warn(self: Logger, comptime format: []const u8, args: anytype) void {
         if (@intFromEnum(self.level) <= @intFromEnum(LogLevel.Warning)) {
-            std.log.warn("{s}: " ++ format, .{self.scope} ++ args);
+            std.log.warn("[{s}] " ++ format, .{self.scope} ++ args);
         }
     }
 
     pub fn err(self: Logger, comptime format: []const u8, args: anytype) void {
         if (@intFromEnum(self.level) <= @intFromEnum(LogLevel.Error)) {
-            std.log.err("{s}: " ++ format, .{self.scope} ++ args);
+            std.log.err("[{s}] " ++ format, .{self.scope} ++ args);
         }
     }
 };

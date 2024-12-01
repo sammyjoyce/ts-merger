@@ -58,6 +58,7 @@ This project is a Zig-based application named **"fuze"** designed to parse and a
     - **`tree-sitter-typescript`:** Compiles the TypeScript grammar for Tree-sitter.
   - **Executable (`fuze`):** The main application that links against the Tree-sitter libraries.
   - **Build Steps:**
+    - Clones necessary Tree-sitter repositories if they are not already present.
     - Compiles necessary C sources for Tree-sitter.
     - Links the Tree-sitter libraries with the Zig executable.
     - Sets up installation and run commands for the executable.

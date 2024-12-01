@@ -15,7 +15,7 @@ pub const Range = struct {
 
 /// Contains the file path and range information of a node in the source code.
 pub const Location = struct {
-    file_path: [:0]const u8,
+    file_path: []const u8,
     range: Range,
 
     /// Initializes a new `Location` with the given file and range.
@@ -169,103 +169,61 @@ pub const NodeKind = struct {
     };
 };
 
-pub fn nodeKindFromString(kind_str: [*:0]const u8) !NodeKind.Kind {
-    const str = std.mem.span(kind_str);
-    return if (std.mem.eql(u8, str, "program"))
-        .Program
-    else if (std.mem.eql(u8, str, "export_statement"))
-        .ExportDecl
-    else if (std.mem.eql(u8, str, "import_statement"))
-        .ImportDecl
-    else if (std.mem.eql(u8, str, "interface_declaration"))
-        .Interface
-    else if (std.mem.eql(u8, str, "class_declaration"))
-        .Class
-    else if (std.mem.eql(u8, str, "function_declaration"))
-        .Function
-    else if (std.mem.eql(u8, str, "variable_declaration"))
-        .Variable
-    else if (std.mem.eql(u8, str, "property_signature"))
-        .Property
-    else if (std.mem.eql(u8, str, "method_definition"))
-        .Method
-    else if (std.mem.eql(u8, str, "formal_parameters"))
-        .Parameter
-    else if (std.mem.eql(u8, str, "type_annotation"))
-        .TypeAnnotation
-    else if (std.mem.eql(u8, str, "comment"))
-        .Comment
-    else if (std.mem.eql(u8, str, "statement_block"))
-        .Block
-    else if (std.mem.eql(u8, str, "}"))
-        .BlockEnd
-    else if (std.mem.eql(u8, str, "identifier") or std.mem.eql(u8, str, "property_identifier"))
-        .Identifier
-    else if (std.mem.eql(u8, str, "type_identifier"))
-        .TypeIdentifier
-    else if (std.mem.eql(u8, str, "object_type"))
-        .ObjectType
-    else if (std.mem.eql(u8, str, "array_type"))
-        .ArrayType
-    else if (std.mem.eql(u8, str, "union_type"))
-        .UnionType
-    else if (std.mem.eql(u8, str, "constructor"))
-        .Constructor
-    else if (std.mem.eql(u8, str, "statement"))
-        .Statement
-    else if (std.mem.eql(u8, str, "expression"))
-        .Expression
-    else if (std.mem.eql(u8, str, "call_expression"))
-        .Call
-    else if (std.mem.eql(u8, str, "member_expression"))
-        .Member
-    else if (std.mem.eql(u8, str, "string") or std.mem.eql(u8, str, "string_literal"))
-        .String
-    else if (std.mem.eql(u8, str, "number") or std.mem.eql(u8, str, "number_literal"))
-        .Number
-    else if (std.mem.eql(u8, str, ";"))
-        .Semicolon
-    else if (std.mem.eql(u8, str, ","))
-        .Comma
-    else if (std.mem.eql(u8, str, "public"))
-        .Public
-    else if (std.mem.eql(u8, str, "private"))
-        .Private
-    else if (std.mem.eql(u8, str, "protected"))
-        .Protected
-    else if (std.mem.eql(u8, str, "return"))
-        .Return
-    else if (std.mem.eql(u8, str, "this"))
-        .This
-    else if (std.mem.eql(u8, str, "=>"))
-        .Arrow
-    else if (std.mem.eql(u8, str, "="))
-        .Equals
-    else if (std.mem.eql(u8, str, "["))
-        .LeftBracket
-    else if (std.mem.eql(u8, str, "]"))
-        .RightBracket
-    else if (std.mem.eql(u8, str, "("))
-        .LeftParen
-    else if (std.mem.eql(u8, str, ")"))
-        .RightParen
-    else if (std.mem.eql(u8, str, "{"))
-        .LeftBrace
-    else if (std.mem.eql(u8, str, "}"))
-        .RightBrace
-    else if (std.mem.eql(u8, str, "|"))
-        .Pipe
-    else if (std.mem.eql(u8, str, "==="))
-        .TripleEquals
-    else
-        .Unknown;
+pub fn nodeKindFromString(kind_str: []const u8) !NodeKind.Kind {
+    if (std.mem.eql(u8, kind_str, "program")) return .Program;
+    if (std.mem.eql(u8, kind_str, "export_statement")) return .ExportDecl;
+    if (std.mem.eql(u8, kind_str, "import_statement")) return .ImportDecl;
+    if (std.mem.eql(u8, kind_str, "interface_declaration")) return .Interface;
+    if (std.mem.eql(u8, kind_str, "class_declaration")) return .Class;
+    if (std.mem.eql(u8, kind_str, "function_declaration")) return .Function;
+    if (std.mem.eql(u8, kind_str, "variable_declaration")) return .Variable;
+    if (std.mem.eql(u8, kind_str, "property_signature")) return .Property;
+    if (std.mem.eql(u8, kind_str, "method_definition")) return .Method;
+    if (std.mem.eql(u8, kind_str, "formal_parameters")) return .Parameter;
+    if (std.mem.eql(u8, kind_str, "type_annotation")) return .TypeAnnotation;
+    if (std.mem.eql(u8, kind_str, "comment")) return .Comment;
+    if (std.mem.eql(u8, kind_str, "statement_block")) return .Block;
+    if (std.mem.eql(u8, kind_str, "}")) return .BlockEnd;
+    if (std.mem.eql(u8, kind_str, "identifier")) return .Identifier;
+    if (std.mem.eql(u8, kind_str, "property_identifier")) return .Identifier;
+    if (std.mem.eql(u8, kind_str, "type_identifier")) return .TypeIdentifier;
+    if (std.mem.eql(u8, kind_str, "object_type")) return .ObjectType;
+    if (std.mem.eql(u8, kind_str, "array_type")) return .ArrayType;
+    if (std.mem.eql(u8, kind_str, "union_type")) return .UnionType;
+    if (std.mem.eql(u8, kind_str, "constructor")) return .Constructor;
+    if (std.mem.eql(u8, kind_str, "statement")) return .Statement;
+    if (std.mem.eql(u8, kind_str, "expression")) return .Expression;
+    if (std.mem.eql(u8, kind_str, "call_expression")) return .Call;
+    if (std.mem.eql(u8, kind_str, "member_expression")) return .Member;
+    if (std.mem.eql(u8, kind_str, "string")) return .String;
+    if (std.mem.eql(u8, kind_str, "string_literal")) return .String;
+    if (std.mem.eql(u8, kind_str, "number")) return .Number;
+    if (std.mem.eql(u8, kind_str, "number_literal")) return .Number;
+    if (std.mem.eql(u8, kind_str, ";")) return .Semicolon;
+    if (std.mem.eql(u8, kind_str, ",")) return .Comma;
+    if (std.mem.eql(u8, kind_str, "public")) return .Public;
+    if (std.mem.eql(u8, kind_str, "private")) return .Private;
+    if (std.mem.eql(u8, kind_str, "protected")) return .Protected;
+    if (std.mem.eql(u8, kind_str, "return")) return .Return;
+    if (std.mem.eql(u8, kind_str, "this")) return .This;
+    if (std.mem.eql(u8, kind_str, "=>")) return .Arrow;
+    if (std.mem.eql(u8, kind_str, "=")) return .Equals;
+    if (std.mem.eql(u8, kind_str, "[")) return .LeftBracket;
+    if (std.mem.eql(u8, kind_str, "]")) return .RightBracket;
+    if (std.mem.eql(u8, kind_str, "(")) return .LeftParen;
+    if (std.mem.eql(u8, kind_str, ")")) return .RightParen;
+    if (std.mem.eql(u8, kind_str, "{")) return .LeftBrace;
+    if (std.mem.eql(u8, kind_str, "}")) return .RightBrace;
+    if (std.mem.eql(u8, kind_str, "|")) return .Pipe;
+    if (std.mem.eql(u8, kind_str, "===")) return .TripleEquals;
+    return .Unknown;
 }
 
 /// Represents a code flow node with dependencies and references
 pub const CodeFlowNode = struct {
-    name: [:0]const u8,
+    name: []const u8,
     kind: NodeKind,
-    source: ?[:0]const u8,
+    source: ?[]const u8,
     location: Location,
     freed: bool,
     dependencies: std.ArrayList(*CodeFlowNode),
@@ -282,6 +240,7 @@ pub const CodeFlowNode = struct {
             .freed = false,
             .dependencies = std.ArrayList(*CodeFlowNode).init(allocator),
             .references = std.ArrayList(*CodeFlowNode).init(allocator),
+            // SAFETY: The 'location' will be initialized before being accessed.
             .location = undefined,
         };
         return node;
@@ -311,6 +270,7 @@ pub const CodeFlowNode = struct {
             .freed = false,
             .dependencies = std.ArrayList(*CodeFlowNode).init(self.dependencies.allocator),
             .references = std.ArrayList(*CodeFlowNode).init(self.dependencies.allocator),
+            // SAFETY: The 'location' will be initialized before being accessed.
             .location = undefined,
         };
 

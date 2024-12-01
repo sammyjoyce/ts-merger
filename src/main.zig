@@ -1,5 +1,6 @@
 const std = @import("std");
 const Project = @import("project.zig").Project;
+const Logger = @import("utils/log.zig").Logger;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -10,7 +11,7 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
 
     if (args.len < 2) {
-        std.debug.print("Error: Not enough arguments\n", .{});
+        Logger.init(.Error).err("Error: Not enough arguments", .{});
         return error.NotEnoughArguments;
     }
 
@@ -20,39 +21,37 @@ pub fn main() !void {
     if (std.mem.eql(u8, command, "merge")) {
         try mergeCommand(allocator, command_args);
     } else {
-        std.debug.print("Error: Unknown command '{s}'\n", .{command});
+        Logger.init(.Error).err("Error: Unknown command '{s}'", .{command});
         return error.UnknownCommand;
     }
 }
 
 fn mergeCommand(allocator: std.mem.Allocator, args: []const []const u8) !void {
     if (args.len < 2) {
-        std.debug.print("Error: Not enough arguments\n", .{});
+        Logger.init(.Error).err("Error: Not enough arguments for merge command", .{});
         return error.NotEnoughArguments;
     }
 
     const target_file = args[0];
     const source_files = args[1..];
 
-    std.debug.print("Command: merge\n", .{});
-    std.debug.print("Target: {s}\n", .{target_file});
-    std.debug.print("Source files:\n", .{});
+    Logger.scoped(.Info, "merge").info("Starting merge command...", .{});
+    Logger.scoped(.Info, "merge").info("Target: {s}", .{target_file});
+    Logger.scoped(.Info, "merge").info("Source files:", .{});
     for (source_files) |file| {
-        std.debug.print("  - {s}\n", .{file});
+        Logger.scoped(.Info, "merge").info("  - {s}", .{file});
     }
-
-    std.debug.print("Starting merge command...\n", .{});
 
     var project_instance = try Project.init(allocator);
     defer project_instance.deinit();
 
-    std.debug.print("Processing source files...\n", .{});
+    Logger.scoped(.Info, "merge").info("Processing source files...", .{});
     for (source_files) |file| {
         try project_instance.parseFile(file);
     }
 
-    std.debug.print("Writing to file...\n", .{});
+    Logger.scoped(.Info, "merge").info("Writing to file...", .{});
     try project_instance.writeToFile(target_file);
 
-    std.debug.print("Done!\n", .{});
+    Logger.scoped(.Info, "merge").info("Merge command completed successfully.", .{});
 }
