@@ -66,6 +66,22 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get Latest Version
+        id: version
+        run: |
+          # Try to get the latest version from build.zig.zon
+          version=$(grep '\.version = ' build.zig.zon | cut -d'"' -f2)
+          echo "version=$version" >> $GITHUB_OUTPUT
+          
+          # Generate nightly version with timestamp
+          timestamp=$(date -u +"%Y%m%d")
+          echo "nightly_version=${version}-nightly.${timestamp}" >> $GITHUB_OUTPUT
+
+      - name: Update Version
+        run: |
+          # We don't need to update build.zig.zon for nightly builds
+          echo "Using nightly version: ${{ steps.version.outputs.nightly_version }}"
+
       - name: Build Installation Scripts
         run: python3 .github/scripts/build_scripts.py
         env:
@@ -114,51 +130,6 @@ jobs:
         run: |
           git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
 
-      - name: Generate Nightly Version
-        id: versioning
-        run: |
-          # Try to get the latest stable version from tags, fallback to build.zig.zon version if no tags exist
-          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1` 2>/dev/null || echo "")
-          if [ -z "$LATEST_TAG" ]; then
-            # No tags exist, use version from build.zig.zon
-            LATEST_VERSION=$(grep '\.version = ' build.zig.zon | cut -d'"' -f2)
-            echo "No tags found, using version from build.zig.zon: ${LATEST_VERSION}"
-          else
-            LATEST_VERSION=${LATEST_TAG#v}
-            echo "Found latest tag version: ${LATEST_VERSION}"
-          fi
-
-          # Validate the version format
-          if ! python3 -c "import re; import sys; sys.exit(0 if re.match(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$', '$LATEST_VERSION') else 1)"; then
-            echo "Error: Latest version $LATEST_VERSION is not a valid semver (MAJOR.MINOR.PATCH)"
-            exit 1
-          fi
-
-          # Get current date
-          CURRENT_DATE=$(date +%Y%m%d)
-
-          # Create nightly version
-          NIGHTLY_VERSION="${LATEST_VERSION}-nightly.${CURRENT_DATE}"
-
-          # Validate the nightly version format
-          if ! python3 -c "import re; import sys; sys.exit(0 if re.match(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-nightly\.\d{8}$', '$NIGHTLY_VERSION') else 1)"; then
-            echo "Error: Nightly version $NIGHTLY_VERSION is not valid"
-            exit 1
-          fi
-
-          echo "NIGHTLY_VERSION=${NIGHTLY_VERSION}" >> $GITHUB_ENV
-          echo "Generated nightly version: ${NIGHTLY_VERSION}"
-
-      - name: Update build.zig.zon with Nightly Version
-        run: |
-          python3 .github/scripts/update_version.py build.zig.zon "${NIGHTLY_VERSION}"
-
-      - name: Commit and Push build.zig.zon
-        run: |
-          git add build.zig.zon
-          git commit -m "chore: update build.zig.zon to nightly version ${NIGHTLY_VERSION}"
-          git push
-
       - name: Run Tests
         run: zig build test
 
@@ -176,8 +147,8 @@ jobs:
       - name: Create Nightly Release
         uses: ncipollo/release-action@v1
         with:
-          tag: nightly-${{ env.NIGHTLY_VERSION }}
-          name: Nightly Release ${{ env.NIGHTLY_VERSION }}
+          tag: nightly-${{ steps.version.outputs.nightly_version }}
+          name: Nightly Release ${{ steps.version.outputs.nightly_version }}
           artifacts: "release_assets/fuze-linux-x64,release_assets/fuze-macos-x64,release_assets/fuze-windows-x64.exe"
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
