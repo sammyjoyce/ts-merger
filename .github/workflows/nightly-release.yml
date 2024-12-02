@@ -63,13 +63,13 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            target: linux-x86_64
+            target: x86_64-linux-gnu
             exe_name: fuze-linux-x64
           - os: macos-latest
-            target: macos-aarch64
+            target: aarch64-macos
             exe_name: fuze-macos-arm64
           - os: windows-latest
-            target: windows-x86_64
+            target: x86_64-windows-msvc 
             exe_name: fuze-windows-x64.exe
 
     steps:
@@ -80,7 +80,6 @@ jobs:
 
       - name: Get Latest Version
         id: version
-        shell: bash
         run: |
           # Try to get the latest version from build.zig.zon
           version=$(grep '\.version = ' build.zig.zon | cut -d'"' -f2)
