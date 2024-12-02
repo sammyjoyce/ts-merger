@@ -1,0 +1,185 @@
+name: Stable Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_bump:
+        description: 'Force version bump type (major, minor, patch)'
+        required: false
+        type: choice
+        options:
+          - auto
+          - major
+          - minor
+          - patch
+        default: 'auto'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.github/**'
+      - '**.md'
+
+env:
+  GITHUB_REPOSITORY: ${{ github.repository }}
+  GITHUB_OWNER: ${{ github.repository_owner }}
+  GITHUB_REPO: ${{ github.event.repository.name }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      current_version: ${{ steps.version.outputs.current_version }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for version calculations
+
+      - name: Build Installation Scripts
+        run: python3 .github/scripts/build_scripts.py
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Get Current Version
+        id: current
+        run: |
+          CURRENT_VERSION=$(grep 'version = ' build.zig.zon | sed 's/.*version = "\(.*\)".*/\1/')
+          echo "version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Calculate New Version
+        id: version
+        run: |
+          CURRENT_VERSION="${{ steps.current.outputs.version }}"
+          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          
+          if [[ "${{ github.event.inputs.force_bump }}" != "auto" && "${{ github.event.inputs.force_bump }}" != "" ]]; then
+            NEW_VERSION=$(python3 .github/scripts/bump_version.py "${CURRENT_VERSION}" "${{ github.event.inputs.force_bump }}")
+          else
+            NEW_VERSION=$(python3 .github/scripts/bump_version.py "${CURRENT_VERSION}")
+          fi
+          
+          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "Bumping version from ${CURRENT_VERSION} to ${NEW_VERSION}"
+
+  release:
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            asset_name: fuze-linux-x64
+            executable: fuze
+          - os: macos-latest
+            asset_name: fuze-macos-x64
+            executable: fuze
+          - os: windows-latest
+            asset_name: fuze-windows-x64.exe
+            executable: fuze-windows-x64.exe
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set Up Git Config
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Set up Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: master
+
+      - name: Cache tree-sitter dependencies
+        uses: actions/cache@v3
+        with:
+          path: deps/tree-sitter
+          key: ${{ runner.os }}-tree-sitter-${{ hashFiles('deps/tree-sitter/**') }}
+          restore-keys: |
+            ${{ runner.os }}-tree-sitter-
+
+      - name: Cache tree-sitter-typescript dependencies
+        uses: actions/cache@v3
+        with:
+          path: deps/tree-sitter-typescript
+          key: ${{ runner.os }}-tree-sitter-typescript-${{ hashFiles('deps/tree-sitter-typescript/**') }}
+          restore-keys: |
+            ${{ runner.os }}-tree-sitter-typescript-
+
+      - name: Clone tree-sitter
+        if: steps.cache-tree-sitter-dependencies.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p deps
+          git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
+
+      - name: Clone tree-sitter-typescript
+        if: steps.cache-tree-sitter-typescript-dependencies.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
+
+      - name: Update build.zig.zon with Release Version
+        run: |
+          NEW_VERSION="${{ needs.prepare.outputs.new_version }}"
+          python3 .github/scripts/update_version.py build.zig.zon "${NEW_VERSION}"
+
+      - name: Create Release Tag
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          NEW_VERSION="${{ needs.prepare.outputs.new_version }}"
+          git add build.zig.zon
+          git commit -m "chore: bump version to ${NEW_VERSION}"
+          git tag -a "v${NEW_VERSION}" -m "Release version ${NEW_VERSION}"
+          git push origin "v${NEW_VERSION}"
+
+      - name: Create GitHub Release
+        if: matrix.os == 'ubuntu-latest'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.prepare.outputs.new_version }}
+          release_name: Release v${{ needs.prepare.outputs.new_version }}
+          draft: false
+          prerelease: false
+          body: |
+            Release v${{ needs.prepare.outputs.new_version }}
+            
+            Changes since v${{ needs.prepare.outputs.current_version }}:
+            
+            ${{ join(github.event.commits.*.message, '\n') }}
+
+      - name: Run Tests
+        run: zig test
+
+      - name: Build Release
+        run: zig build -Doptimize=ReleaseSafe
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuze-${{ matrix.os }}
+          path: zig-out/bin/${{ matrix.executable }}
+          if-no-files-found: error
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./zig-out/bin/${{ matrix.executable }}
+          asset_name: fuze-${{ github.repository }}-${{ matrix.asset_name }}
+          asset_content_type: application/octet-stream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

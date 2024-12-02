@@ -1,0 +1,157 @@
+name: Nightly Release
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs every day at 00:00 UTC
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.github/**'
+
+env:
+  GITHUB_REPOSITORY: ${{ github.repository }}
+  GITHUB_OWNER: ${{ github.repository_owner }}
+  GITHUB_REPO: ${{ github.event.repository.name }}
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest  # Use a specific runner for consistency
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for version calculations
+
+      - name: Build Installation Scripts
+        run: python3 .github/scripts/build_scripts.py
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Set Up Git Config
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Set up Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: master
+
+      - name: Cache tree-sitter dependencies
+        uses: actions/cache@v3
+        with:
+          path: deps/tree-sitter
+          key: ${{ runner.os }}-tree-sitter-${{ hashFiles('deps/tree-sitter/**') }}
+          restore-keys: |
+            ${{ runner.os }}-tree-sitter-
+
+      - name: Cache tree-sitter-typescript dependencies
+        uses: actions/cache@v3
+        with:
+          path: deps/tree-sitter-typescript
+          key: ${{ runner.os }}-tree-sitter-typescript-${{ hashFiles('deps/tree-sitter-typescript/**') }}
+          restore-keys: |
+            ${{ runner.os }}-tree-sitter-typescript-
+
+      - name: Clone tree-sitter
+        if: steps.cache-tree-sitter-dependencies.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p deps
+          git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
+
+      - name: Clone tree-sitter-typescript
+        if: steps.cache-tree-sitter-typescript-dependencies.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
+
+      - name: Generate Nightly Version
+        id: versioning
+        run: |
+          # Get the latest stable version from tags
+          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+          LATEST_VERSION=${LATEST_TAG#v}
+
+          # Validate the version format
+          if ! python3 -c "import re; import sys; sys.exit(0 if re.match(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$', '$LATEST_VERSION') else 1)"; then
+            echo "Error: Latest version $LATEST_VERSION is not a valid semver (MAJOR.MINOR.PATCH)"
+            exit 1
+          fi
+
+          # Get current date
+          CURRENT_DATE=$(date +%Y%m%d)
+
+          # Create nightly version
+          NIGHTLY_VERSION="${LATEST_VERSION}-nightly.${CURRENT_DATE}"
+
+          # Validate the nightly version format
+          if ! python3 -c "import re; import sys; sys.exit(0 if re.match(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-nightly\.\d{8}$', '$NIGHTLY_VERSION') else 1)"; then
+            echo "Error: Nightly version $NIGHTLY_VERSION is not valid"
+            exit 1
+          fi
+
+          echo "NIGHTLY_VERSION=${NIGHTLY_VERSION}" >> $GITHUB_ENV
+          echo "Generated nightly version: ${NIGHTLY_VERSION}"
+
+      - name: Update build.zig.zon with Nightly Version
+        run: |
+          python3 .github/scripts/update_version.py build.zig.zon "${NIGHTLY_VERSION}"
+
+      - name: Commit and Push build.zig.zon
+        run: |
+          git add build.zig.zon
+          git commit -m "chore: update build.zig.zon to nightly version ${NIGHTLY_VERSION}"
+          git push
+
+      - name: Run Tests
+        run: zig test
+
+      - name: Build Nightly Release
+        run: zig build -Doptimize=ReleaseSafe
+
+      - name: Create Nightly Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: nightly-${{ env.NIGHTLY_VERSION }}
+          release_name: Nightly Release ${{ env.NIGHTLY_VERSION }}
+          draft: false
+          prerelease: true
+
+      - name: Upload Release Asset (Linux)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./zig-out/bin/fuze-linux-x64
+          asset_name: fuze-${{ github.repository }}-linux-x64-nightly-${{ env.NIGHTLY_VERSION }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload Release Asset (macOS)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./zig-out/bin/fuze-macos-x64
+          asset_name: fuze-${{ github.repository }}-macos-x64-nightly-${{ env.NIGHTLY_VERSION }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload Release Asset (Windows)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./zig-out/bin/fuze-windows-x64.exe
+          asset_name: fuze-${{ github.repository }}-windows-x64-nightly-${{ env.NIGHTLY_VERSION }}.exe
+          asset_content_type: application/octet-stream

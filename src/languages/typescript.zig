@@ -1,5 +1,5 @@
 const std = @import("std");
-const Node = @import("../ast/node.zig").Node;
+const Node = @import("../types.zig").Node;
 const common = @import("common.zig");
 const ts = @import("../bindings/tree_sitter.zig");
 

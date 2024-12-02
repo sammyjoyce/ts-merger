@@ -1,0 +1,59 @@
+# PowerShell script to install stable release
+
+# Repository information (will be replaced during build)
+$GITHUB_OWNER = "{{GITHUB_OWNER}}"
+$GITHUB_REPO = "{{GITHUB_REPO}}"
+$GITHUB_REPOSITORY = "{{GITHUB_REPOSITORY}}"
+
+# Ensure we're running with elevated privileges
+if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Warning "Please run this script as Administrator"
+    exit 1
+}
+
+# Define installation paths
+$installDir = "$env:ProgramFiles\$GITHUB_REPO"
+$binPath = "$installDir\$GITHUB_REPO.exe"
+
+# Create installation directory if it doesn't exist
+if (-not (Test-Path $installDir)) {
+    New-Item -ItemType Directory -Path $installDir | Out-Null
+}
+
+# Get the latest release info
+$apiUrl = "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/latest"
+try {
+    $release = Invoke-RestMethod -Uri $apiUrl
+} catch {
+    Write-Error "Failed to fetch release information: $_"
+    exit 1
+}
+
+if (-not $release) {
+    Write-Error "No release found"
+    exit 1
+}
+
+# Construct the download URL
+$downloadUrl = "https://github.com/$GITHUB_REPOSITORY/releases/download/$($release.tag_name)/$GITHUB_REPO-windows-x64.exe"
+
+Write-Host "Downloading $GITHUB_REPO version $($release.tag_name)..."
+try {
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $binPath
+} catch {
+    Write-Error "Failed to download $GITHUB_REPO: $_"
+    exit 1
+}
+
+# Add to PATH if not already present
+$currentPath = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine)
+if ($currentPath -notlike "*$installDir*") {
+    [Environment]::SetEnvironmentVariable(
+        "Path",
+        "$currentPath;$installDir",
+        [EnvironmentVariableTarget]::Machine
+    )
+}
+
+Write-Host "$GITHUB_REPO $($release.tag_name) has been installed to $binPath"
+Write-Host "Run '$GITHUB_REPO --help' to get started"

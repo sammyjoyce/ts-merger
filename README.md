@@ -1,150 +1,156 @@
-# fuze
+# Fuze
 
-A command-line tool written in Zig that merges source files into a single file while preserving exports, maintaining module structure, and respecting index file barrel exports.
+**Fuze** is a robust command-line tool written in [Zig](https://ziglang.org/) that merges TypeScript source files into a single file. Consolidating your codebase is particularly useful for refactoring, debugging, sharing code, and enhancing compatibility with Large Language Models (LLMs). By organizing your codebase based on control flow, Fuze aids both LLMs and developers in better understanding and maintaining complex projects.
+
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+  - [Stable Release](#stable-release)
+  - [Nightly Build](#nightly-build)
+- [Usage](#usage)
+  - [Options](#options)
+  - [Example](#example)
+- [Roadmap](#roadmap)
+  - [Code Understanding & Analysis](#code-understanding--analysis)
+  - [Code Organization & Flow](#code-organization--flow)
+  - [Import Management](#import-management)
+  - [Code Quality & Preservation](#code-quality--preservation)
+  - [Developer Experience](#developer-experience)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Features
 
-- Preserves export order from index file
-- Handles internal imports between merged files
-- Preserves comments (optional)
-- Sorts imports (optional) 
-- Excludes files via patterns
-- Recursive directory processing
+- **Preserves Export Order:** Maintains the sequence of exports from the index file.
+- **Handles Internal Imports:** Manages internal import statements between merged files.
+- **Preserves Comments:** Optionally retains comments within the code.
+- **Sorts Imports:** Optionally organizes import statements for better readability.
+- **Excludes Files:** Allows exclusion of specific files using patterns.
+- **Recursive Directory Processing:** Processes directories recursively to merge files efficiently.
 
 ## Installation
 
+You can install **Fuze** by downloading the appropriate release artifact for your operating system and placing it in your system's `PATH`. Alternatively, use the provided installation scripts for streamlined setup.
+
+### Stable Release
+
+#### Unix-like Systems (Linux, macOS)
+
+**Using `curl`:**
+
 ```bash
-# Clone the repository
-git clone [repository-url]
-cd fuze
-
-# Clone dependencies
-mkdir -p deps
-git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
-git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
-
-# Build the project
-zig build
+curl -fsSL https://raw.githubusercontent.com/sammyjoyce/fuze/main/.github/scripts/install.sh | bash
 ```
 
-## Dependencies
+**Using Installation Scripts:**
 
-- [Zig](https://ziglang.org/) (master)
-- [Tree-sitter](https://tree-sitter.github.io/) (v0.20.8)
-- [Tree-sitter-typescript](https://github.com/tree-sitter/tree-sitter-typescript) (v0.20.1)
+```bash
+curl -L -o install.sh https://github.com/sammyjoyce/fuze/raw/main/.github/scripts/install.sh
+chmod +x install.sh
+./install.sh
+```
+
+#### Windows (PowerShell)
+
+**Using `Invoke-WebRequest`:**
+
+```powershell
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/sammyjoyce/fuze/main/.github/scripts/install.ps1 -OutFile install.ps1
+.\install.ps1
+```
+
+**Using Installation Scripts:**
+
+```powershell
+irm https://raw.githubusercontent.com/sammyjoyce/fuze/main/.github/scripts/install.ps1 | iex
+```
+
+*Ensure that your system's `PATH` includes the directory where **Fuze** is installed.*
+
+### Nightly Build
+
+For the latest nightly build with the newest features (may be unstable):
+
+#### Unix-like Systems (Linux, macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sammyjoyce/fuze/main/.github/scripts/install-nightly.sh | bash
+```
+
+#### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/sammyjoyce/fuze/main/.github/scripts/install-nightly.ps1 | iex
+```
+
+*Note: Nightly builds contain the latest features but may be unstable. For production use, we recommend using the stable release.*
 
 ## Usage
 
 ```bash
 fuze [options]
+```
 
-Options:
-  --dir <path>          Target directory (default: current)
-  --out <name>          Output filename
-  --recursive           Process subdirectories (default: true)
-  --exclude <patterns>  Comma-separated exclude patterns
-  --preserve-comments   Keep comments (default: true)  
-  --sort-imports        Sort imports (default: true)
-  -h, --help            Show help
+### Options
+
+- `--dir <path>`          Target directory (default: current directory)
+- `--out <filename>`      Output filename (default: `merged.ts`)
+- `--recursive`           Process subdirectories recursively (default: `true`)
+- `--exclude <patterns>`  Comma-separated exclude patterns (e.g., `tests,docs`)
+- `--preserve-comments`   Preserve comments in the merged file (default: `true`)
+- `--sort-imports`        Sort import statements alphabetically (default: `true`)
+- `-h, --help`            Show help message
+
+### Example
+
+Merge all TypeScript files in the `src` directory into a single file named `merged.ts`, excluding any files in the `tests` directory while preserving comments and sorting imports:
+
+```bash
+fuze --dir src --out merged.ts --exclude tests
 ```
 
 ## Roadmap
 
-- **Tree-sitter Integration**
-  - AST-based parsing to improve syntax handling
-  - Improved import/export dependency resolution
-  - Namespace merging and conflict detection
-  - Source map preservation
+Our roadmap outlines the key features and improvements planned for **Fuze**. Contributions are welcome!
 
-- **Import Optimization**
-  - Move all imports to the top of the file
-  - Remove redundant imports
-  - Sort and group imports by type (built-in, external, internal)
+### Code Understanding & Analysis
 
-- **Development Experience**
-  - Watch mode for automatic recompilation
-  - Hot reload support
-  - Incremental builds
+- [x] **AST-Based Parsing:** Implemented TypeScript parsing using Tree-sitter for accurate syntax handling
+- [x] **Basic Flow Graph:** Implemented dependency and reference tracking between nodes
+- [x] **Code Flow Analysis:** Basic code flow and dependency tracking
+- [ ] **Context-aware Analysis:** Understand type information and semantic relationships
+- [ ] **Cross-module Analysis:** Track dependencies and references across files
 
-## Project Overview
+### Code Organization & Flow
 
-This project is a Zig-based application named **"fuze"** designed to parse and analyze TypeScript code using the [Tree-sitter](https://tree-sitter.github.io/tree-sitter/) parsing library. The application reads TypeScript source files, constructs an Abstract Syntax Tree (AST), and processes various code constructs such as classes, interfaces, and import statements. Additionally, the project includes robust crash handling to ensure stability during execution.
+- [x] **Basic Dependency Resolution:** Implemented import/export dependency tracking
+- [x] **Simple Ordering:** Basic two-pass ordering system (exports first)
+- [ ] **Dependency-based Ordering:** Implement topological sorting and circular dependency resolution
+- [ ] **Smart Code Organization:** Group related declarations and maintain logical code blocks
+- [ ] **Reference-based Positioning:** Place code based on usage patterns and references
+- [ ] **Enhanced Dependency Resolution:** Add support for complex import patterns and circular dependencies
+- [ ] **Namespace Merging:** Implement namespace merging and conflict detection
 
-## Key Components
+### Import Management
 
-### 1. **Build System (`build.zig`)**
+- [x] **Sort Imports:** Implemented configurable import sorting
+- [x] **Basic Import Organization:** Group imports by type
+- [ ] **Advanced Import Organization:** Intelligently organize imports by scope (built-in, external, internal)
+- [ ] **Import Path Optimization:** Simplify and normalize import paths
+- [ ] **Remove Redundancies:** Eliminate redundant import statements
+- [ ] **Dead Code Elimination:** Remove unused imports and code
 
-- **Purpose:** Defines the build configuration for the project, including compilation targets, dependencies, and executable artifacts.
-  
-- **Highlights:**
-  - **Static Libraries:** 
-    - **`tree-sitter`:** Compiles the core Tree-sitter library from C source files.
-    - **`tree-sitter-typescript`:** Compiles the TypeScript grammar for Tree-sitter.
-  - **Executable (`fuze`):** The main application that links against the Tree-sitter libraries.
-  - **Build Steps:**
-    - Clones necessary Tree-sitter repositories if they are not already present.
-    - Compiles necessary C sources for Tree-sitter.
-    - Links the Tree-sitter libraries with the Zig executable.
-    - Sets up installation and run commands for the executable.
+### Code Quality & Preservation
 
-### 2. **Crash Handler (`src/crash_handler.c`)**
+- [x] **Comment Preservation:** Maintain code comments during merging
+- [ ] **Code Style Preservation:** Maintain consistent code formatting
+- [ ] **Source Map Preservation:** Maintain source maps for better debugging
 
-- **Purpose:** Implements a system-level crash handler to gracefully handle unexpected signals such as segmentation faults or illegal instructions.
-  
-- **Highlights:**
-  - **Signal Handling:** Captures signals like `SIGSEGV`, `SIGABRT`, `SIGBUS`, `SIGILL`, and `SIGFPE`.
-  - **Backtrace Generation:** On receiving a signal, it captures and prints a backtrace to `stderr` for debugging purposes.
-  - **Initialization:** Uses a constructor attribute to set up the crash handlers before the application starts executing.
+### Developer Experience
 
-### 3. **Parser Module (`src/parser.zig`)**
-
-- **Purpose:** Provides functionality to parse TypeScript source files into AST nodes using Tree-sitter.
-  
-- **Highlights:**
-  - **Structures:**
-    - **`Parser`:** Manages the parsing process, including reading files, invoking Tree-sitter, and storing parsed nodes.
-  - **Initialization & Cleanup:**
-    - Initializes Tree-sitter parsers for TypeScript.
-    - Ensures proper deinitialization of parsers and scanners to manage resources.
-  - **Parsing Functions:**
-    - **`parseFile`:** Reads a TypeScript file from disk and initiates parsing.
-    - **`parseString`:** Parses a given TypeScript source string.
-    - **`processNode`:** Processes individual AST nodes based on their type (e.g., classes, interfaces, imports).
-    - **`processImportNode`:** Specifically handles import statements within the AST.
-  - **Utilities:**
-    - Extracts source code segments and locations for nodes to aid in further processing or analysis.
-
-### 4. **Project Management (`src/project.zig`)**
-
-- **Purpose:** Serves as the central manager for the parsing application, orchestrating the parser and flow modules.
-  
-- **Highlights:**
-  - **Structures:**
-    - **`Project`:** Encapsulates the overall project state, including the parser and flow components.
-  - **Initialization & Cleanup:**
-    - **`init`:** Allocates and initializes the project, including its parser and flow components.
-    - **`deinit`:** Cleans up resources by deinitializing the parser and flow.
-  - **Functionality:**
-    - **`parseFile` & `parseString`:** Delegates parsing tasks to the parser component.
-    - **`getNodes`:** Retrieves parsed nodes from the parser for further processing.
-    - **`writeToFile`:** Writes the processed data to an output file, likely for reporting or analysis purposes.
-
-## Additional Notes
-
-- **Error Handling:** The integration of a crash handler indicates a focus on stability, ensuring that the application can handle and report unexpected failures gracefully.
-  
-- **Modularity:** The separation of concerns between parsing (`parser.zig`), project management (`project.zig`), and crash handling (`crash_handler.c`) suggests a well-organized codebase that facilitates maintenance and scalability.
-
-- **Dependencies:** The project relies on external C libraries for Tree-sitter, which are integrated into the Zig build process, showcasing interoperability between Zig and C.
-
-## Potential Enhancements
-
-- **Logging:** Implementing more sophisticated logging mechanisms could aid in monitoring and debugging.
-  
-- **Configuration:** Allowing configurable parsing options or supporting multiple languages by extending Tree-sitter integrations.
-
-- **Testing:** Incorporating comprehensive tests to ensure the reliability of the parsing and processing logic.
-
-## Conclusion
-
-This Zig project is a robust tool for parsing and analyzing TypeScript code, leveraging the power of Tree-sitter for efficient and accurate AST generation. With a solid build system, crash handling, and modular design, it serves as a strong foundation for further development and feature additions.
+- [x] **Error Handling:** Added robust error handling and reporting
+- [ ] **Incremental Processing:** Only reprocess modified files and their dependents
+- [x] **File Watching:** Implemented file system watching for automatic updates
+- [ ] **Watch Mode:** Automatically reprocess files on changes with caching
+- [ ] **Progress Reporting:** Add detailed progress and status information

@@ -1,5 +1,5 @@
 const std = @import("std");
-const Node = @import("../ast/node.zig").Node;
+const Node = @import("../types.zig").Node;
 
 pub const MergeRules = struct {
     preserve_comments: bool,

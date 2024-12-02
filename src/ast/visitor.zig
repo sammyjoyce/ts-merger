@@ -1,5 +1,5 @@
 const std = @import("std");
-const Node = @import("node.zig").Node;
+const Node = @import("../types.zig").Node;
 
 pub const Visitor = struct {
     pub const VisitError = error{
