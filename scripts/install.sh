@@ -1,41 +1,57 @@
 #!/bin/bash
+
 set -e
 
-# Detect OS
-OS="$(uname -s)"
-case "${OS}" in
-    Linux*)     MACHINE=linux;;
-    Darwin*)    MACHINE=macos;;
-    *)          echo "Unsupported operating system: ${OS}"; exit 1;;
-esac
-
-# Detect architecture
-ARCH="$(uname -m)"
-case "${ARCH}" in
-    x86_64*)    ARCH=x64;;
-    arm64*)     ARCH=arm64;;
-    *)          echo "Unsupported architecture: ${ARCH}"; exit 1;;
-esac
-
 # Get the latest release URL
-LATEST_RELEASE_URL="https://github.com/sammyjoyce/fuze/releases/latest/download/fuze-${MACHINE}-${ARCH}"
+REPO="codeium/ts-merger"
+LATEST_RELEASE_URL="https://api.github.com/repos/$REPO/releases/latest"
 
-# Installation directory
-INSTALL_DIR="/usr/local/bin"
-[ ! -d "$INSTALL_DIR" ] && sudo mkdir -p "$INSTALL_DIR"
+# Detect OS and architecture
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
 
-echo "Downloading fuze..."
-if command -v curl > /dev/null; then
-    sudo curl -L -o "${INSTALL_DIR}/fuze" "${LATEST_RELEASE_URL}"
-elif command -v wget > /dev/null; then
-    sudo wget -O "${INSTALL_DIR}/fuze" "${LATEST_RELEASE_URL}"
-else
-    echo "Error: curl or wget is required"
+case "$OS" in
+    "darwin")
+        case "$ARCH" in
+            "x86_64") BINARY="fuze-macos-x64" ;;
+            "arm64") BINARY="fuze-macos-arm64" ;;
+            *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+        ;;
+    "linux")
+        case "$ARCH" in
+            "x86_64") BINARY="fuze-linux-x64" ;;
+            *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+        ;;
+    *)
+        echo "Unsupported operating system: $OS"
+        exit 1
+        ;;
+esac
+
+# Create installation directory
+INSTALL_DIR="$HOME/.local/bin"
+mkdir -p "$INSTALL_DIR"
+
+# Download binary
+echo "Downloading latest release of fuze..."
+DOWNLOAD_URL=$(curl -s $LATEST_RELEASE_URL | grep "browser_download_url.*$BINARY" | cut -d '"' -f 4)
+
+if [ -z "$DOWNLOAD_URL" ]; then
+    echo "Error: Could not find download URL for $BINARY"
     exit 1
 fi
 
-# Make executable
-sudo chmod +x "${INSTALL_DIR}/fuze"
+# Download and install
+curl -L "$DOWNLOAD_URL" -o "$INSTALL_DIR/fuze"
+chmod +x "$INSTALL_DIR/fuze"
 
-echo "fuze has been installed to ${INSTALL_DIR}/fuze"
-echo "Run 'fuze --help' to get started"
+echo "Successfully installed fuze to $INSTALL_DIR/fuze"
+
+# Check if directory is in PATH
+if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+    echo "NOTE: Add $INSTALL_DIR to your PATH to use fuze from anywhere"
+    echo "You can do this by adding this line to your shell's config file:"
+    echo "  export PATH=\"\$PATH:$INSTALL_DIR\""
+fi

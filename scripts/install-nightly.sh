@@ -19,19 +19,33 @@ if [ -z "$GITHUB_REPOSITORY" ]; then
 fi
 
 # Detect OS
-OS="$(uname -s)"
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 case "${OS}" in
-    Linux*)     MACHINE=linux;;
-    Darwin*)    MACHINE=macos;;
-    *)          echo "Unsupported operating system: ${OS}"; exit 1;;
+    "darwin")
+        MACHINE=macos
+        ;;
+    "linux")
+        MACHINE=linux
+        ;;
+    *)
+        echo "Unsupported operating system: ${OS}"
+        exit 1
+        ;;
 esac
 
 # Detect architecture
-ARCH="$(uname -m)"
+ARCH=$(uname -m)
 case "${ARCH}" in
-    x86_64*)    ARCH=x64;;
-    arm64*)     ARCH=arm64;;
-    *)          echo "Unsupported architecture: ${ARCH}"; exit 1;;
+    "x86_64")
+        ARCH=x64
+        ;;
+    "arm64")
+        ARCH=arm64
+        ;;
+    *)
+        echo "Unsupported architecture: ${ARCH}"
+        exit 1
+        ;;
 esac
 
 # Get the latest nightly release info
@@ -53,7 +67,32 @@ if [ -z "$LATEST_NIGHTLY_TAG" ]; then
 fi
 
 # Get the download URL for the latest nightly release
-DOWNLOAD_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${LATEST_NIGHTLY_TAG}/${GITHUB_REPO}-${MACHINE}-${ARCH}-nightly-${LATEST_NIGHTLY_TAG#nightly-}"
+case "${MACHINE}" in
+    "macos")
+        case "${ARCH}" in
+            "x64") BINARY="${GITHUB_REPO}-${MACHINE}-${ARCH}-nightly-${LATEST_NIGHTLY_TAG#nightly-}" ;;
+            "arm64") BINARY="${GITHUB_REPO}-${MACHINE}-${ARCH}-nightly-${LATEST_NIGHTLY_TAG#nightly-}" ;;
+            *) echo "Unsupported architecture: ${ARCH}"; exit 1 ;;
+        esac
+        ;;
+    "linux")
+        case "${ARCH}" in
+            "x64") BINARY="${GITHUB_REPO}-${MACHINE}-${ARCH}-nightly-${LATEST_NIGHTLY_TAG#nightly-}" ;;
+            *) echo "Unsupported architecture: ${ARCH}"; exit 1 ;;
+        esac
+        ;;
+    *)
+        echo "Unsupported operating system: ${OS}"
+        exit 1
+        ;;
+esac
+
+DOWNLOAD_URL=$(echo "$RELEASES" | grep -m 1 "browser_download_url.*$BINARY" | cut -d '"' -f 4)
+
+if [ -z "$DOWNLOAD_URL" ]; then
+    echo "Error: Could not find download URL for $BINARY"
+    exit 1
+fi
 
 # Installation directory
 INSTALL_DIR="/usr/local/bin"

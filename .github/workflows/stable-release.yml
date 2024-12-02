@@ -72,17 +72,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            asset_name: fuze-linux-x64
-            executable: fuze
+            target: linux-x86_64
+            exe_name: fuze-linux-x64
           - os: macos-latest
-            asset_name: fuze-macos-x64
-            executable: fuze
+            target: macos-aarch64
+            exe_name: fuze-macos-arm64
           - os: windows-latest
-            asset_name: fuze-windows-x64.exe
-            executable: fuze-windows-x64.exe
+            target: windows-x86_64
+            exe_name: fuze-windows-x64.exe
 
     steps:
       - name: Checkout Repository
@@ -137,6 +136,25 @@ jobs:
           NEW_VERSION="${{ needs.prepare.outputs.new_version }}"
           python3 .github/scripts/update_version.py build.zig.zon "${NEW_VERSION}"
 
+      - name: Run Tests
+        run: zig build test
+
+      - name: Build Release
+        run: |
+          zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dname=${{ matrix.exe_name }}
+
+      - name: List Build Output
+        run: |
+          ls -la zig-out/bin/
+        shell: bash
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuze-${{ matrix.os }}
+          path: zig-out/bin/${{ matrix.exe_name }}
+          if-no-files-found: error
+
       - name: Create Release Tag
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -146,26 +164,13 @@ jobs:
           git tag -a "v${NEW_VERSION}" -m "Release version ${NEW_VERSION}"
           git push origin "v${NEW_VERSION}"
 
-      - name: Run Tests
-        run: zig build test
-
-      - name: Build Release
-        run: zig build -Doptimize=ReleaseSafe
-
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: fuze-${{ matrix.os }}
-          path: zig-out/bin/${{ matrix.executable }}
-          if-no-files-found: error
-
       - name: Create GitHub Release
         if: matrix.os == 'ubuntu-latest'
         uses: ncipollo/release-action@v1
         with:
           tag: v${{ needs.prepare.outputs.new_version }}
           name: Release v${{ needs.prepare.outputs.new_version }}
-          artifacts: "./zig-out/bin/fuze-linux-x64,./zig-out/bin/fuze-macos-x64,./zig-out/bin/fuze-windows-x64.exe"
+          artifacts: "./zig-out/bin/fuze-linux-x64,./zig-out/bin/fuze-macos-arm64,./zig-out/bin/fuze-windows-x64.exe"
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: false

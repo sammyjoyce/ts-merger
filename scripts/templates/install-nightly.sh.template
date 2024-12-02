@@ -6,24 +6,34 @@ GITHUB_OWNER="{{GITHUB_OWNER}}"
 GITHUB_REPO="{{GITHUB_REPO}}"
 GITHUB_REPOSITORY="{{GITHUB_REPOSITORY}}"
 
-# Detect OS
-OS="$(uname -s)"
-case "${OS}" in
-    Linux*)     MACHINE=linux;;
-    Darwin*)    MACHINE=macos;;
-    *)          echo "Unsupported operating system: ${OS}"; exit 1;;
-esac
+# Detect OS and architecture
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m)
 
-# Detect architecture
-ARCH="$(uname -m)"
-case "${ARCH}" in
-    x86_64*)    ARCH=x64;;
-    arm64*)     ARCH=arm64;;
-    *)          echo "Unsupported architecture: ${ARCH}"; exit 1;;
+case "$OS" in
+    "darwin")
+        case "$ARCH" in
+            "x86_64") BINARY="${GITHUB_REPO}-macos-x64" ;;
+            "arm64") BINARY="${GITHUB_REPO}-macos-arm64" ;;
+            *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+        ;;
+    "linux")
+        case "$ARCH" in
+            "x86_64") BINARY="${GITHUB_REPO}-linux-x64" ;;
+            "arm64") BINARY="${GITHUB_REPO}-linux-arm64" ;;
+            *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+        ;;
+    *)
+        echo "Unsupported operating system: $OS"
+        exit 1
+        ;;
 esac
 
 # Get the latest nightly release info
 API_URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/releases"
+
 if command -v curl > /dev/null; then
     RELEASES=$(curl -s "$API_URL")
 elif command -v wget > /dev/null; then
@@ -41,7 +51,12 @@ if [ -z "$LATEST_NIGHTLY_TAG" ]; then
 fi
 
 # Get the download URL for the latest nightly release
-DOWNLOAD_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${LATEST_NIGHTLY_TAG}/${GITHUB_REPO}-${MACHINE}-${ARCH}-nightly-${LATEST_NIGHTLY_TAG#nightly-}"
+DOWNLOAD_URL=$(echo "$RELEASES" | grep -m 1 "browser_download_url.*$BINARY" | cut -d '"' -f 4)
+
+if [ -z "$DOWNLOAD_URL" ]; then
+    echo "Error: Could not find download URL for $BINARY"
+    exit 1
+fi
 
 # Installation directory
 INSTALL_DIR="/usr/local/bin"

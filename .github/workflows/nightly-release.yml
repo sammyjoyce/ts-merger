@@ -58,7 +58,19 @@ jobs:
   nightly:
     needs: check_changes
     if: needs.check_changes.outputs.should_run == 'true'
-    runs-on: ubuntu-latest  # Use a specific runner for consistency
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x86_64
+            exe_name: fuze-linux-x64
+          - os: macos-latest
+            target: macos-aarch64
+            exe_name: fuze-macos-arm64
+          - os: windows-latest
+            target: windows-x86_64
+            exe_name: fuze-windows-x64.exe
 
     steps:
       - uses: actions/checkout@v3
@@ -76,11 +88,6 @@ jobs:
           # Generate nightly version with timestamp
           timestamp=$(date -u +"%Y%m%d")
           echo "nightly_version=${version}-nightly.${timestamp}" >> $GITHUB_OUTPUT
-
-      - name: Update Version
-        run: |
-          # We don't need to update build.zig.zon for nightly builds
-          echo "Using nightly version: ${{ steps.version.outputs.nightly_version }}"
 
       - name: Build Installation Scripts
         run: python3 .github/scripts/build_scripts.py
@@ -133,25 +140,29 @@ jobs:
       - name: Run Tests
         run: zig build test
 
-      - name: Build Nightly Release
-        run: zig build -Doptimize=ReleaseSafe
-
-      - name: Archive Binaries
+      - name: Build Release
         run: |
-          mkdir -p release_assets
-          cp zig-out/bin/fuze-linux-x64 release_assets/
-          cp zig-out/bin/fuze-macos-x64 release_assets/
-          cp zig-out/bin/fuze-windows-x64.exe release_assets/
+          zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dname=${{ matrix.exe_name }}
+
+      - name: List Build Output
+        run: |
+          ls -la zig-out/bin/
         shell: bash
 
-      - name: Create Nightly Release
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.exe_name }}
+          path: zig-out/bin/${{ matrix.exe_name }}
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: matrix.os == 'ubuntu-latest'
         uses: ncipollo/release-action@v1
         with:
-          tag: nightly-${{ steps.version.outputs.nightly_version }}
+          tag: ${{ steps.version.outputs.nightly_version }}
           name: Nightly Release ${{ steps.version.outputs.nightly_version }}
-          artifacts: "release_assets/fuze-linux-x64,release_assets/fuze-macos-x64,release_assets/fuze-windows-x64.exe"
+          artifacts: "./zig-out/bin/fuze-linux-x64,./zig-out/bin/fuze-macos-arm64,./zig-out/bin/fuze-windows-x64.exe"
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: true
-          allowUpdates: true
-          replacesArtifacts: true

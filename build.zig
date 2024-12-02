@@ -4,6 +4,9 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // Add name option
+    const name = b.option([]const u8, "name", "Name of the executable") orelse "fuze";
+
     // Build tree-sitter library
     const tree_sitter = b.addStaticLibrary(.{
         .name = "tree-sitter",
@@ -42,7 +45,7 @@ pub fn build(b: *std.Build) void {
 
     // Add executable
     const exe = b.addExecutable(.{
-        .name = "fuze",
+        .name = name,
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
