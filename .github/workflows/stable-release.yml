@@ -16,6 +16,12 @@ on:
   release:
     types: [created]
 
+# Add permissions needed for creating releases and pushing changes
+permissions:
+  contents: write
+  packages: write
+  actions: write
+
 env:
   GITHUB_REPOSITORY: ${{ github.repository }}
   GITHUB_OWNER: ${{ github.repository_owner }}
