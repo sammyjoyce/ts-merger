@@ -170,23 +170,9 @@ jobs:
         with:
           tag: nightly-${{ env.NIGHTLY_VERSION }}
           name: Nightly Release ${{ env.NIGHTLY_VERSION }}
+          artifacts: "./zig-out/bin/fuze-linux-x64,./zig-out/bin/fuze-macos-x64,./zig-out/bin/fuze-windows-x64.exe"
+          token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: true
-
-      - name: Upload Release Asset (Linux)
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: ./zig-out/bin/fuze-linux-x64
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Release Asset (macOS)
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: ./zig-out/bin/fuze-macos-x64
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Release Asset (Windows)
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: ./zig-out/bin/fuze-windows-x64.exe
-          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          replacesArtifacts: true

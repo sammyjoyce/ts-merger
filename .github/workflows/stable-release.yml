@@ -32,6 +32,7 @@ jobs:
     outputs:
       new_version: ${{ steps.version.outputs.new_version }}
       current_version: ${{ steps.version.outputs.current_version }}
+      changelog: ${{ steps.version.outputs.changelog }}
     
     steps:
       - name: Checkout Repository
@@ -49,6 +50,7 @@ jobs:
         run: |
           version=$(grep '\.version = ' build.zig.zon | cut -d'"' -f2)
           echo "version=$version" >> $GITHUB_OUTPUT
+          echo "changelog=$(git log --format=%s --reverse --no-merges v${version}..)" >> $GITHUB_OUTPUT
 
       - name: Calculate New Version
         id: new_version
@@ -144,21 +146,6 @@ jobs:
           git tag -a "v${NEW_VERSION}" -m "Release version ${NEW_VERSION}"
           git push origin "v${NEW_VERSION}"
 
-      - name: Create GitHub Release
-        if: matrix.os == 'ubuntu-latest'
-        uses: ncipollo/release-action@v1
-        with:
-          tag: v${{ needs.prepare.outputs.new_version }}
-          name: Release v${{ needs.prepare.outputs.new_version }}
-          draft: false
-          prerelease: false
-          body: |
-            Release v${{ needs.prepare.outputs.new_version }}
-            
-            Changes since v${{ needs.prepare.outputs.current_version }}:
-            
-            ${{ join(github.event.commits.*.message, '\n') }}
-
       - name: Run Tests
         run: zig build test
 
@@ -172,8 +159,17 @@ jobs:
           path: zig-out/bin/${{ matrix.executable }}
           if-no-files-found: error
 
-      - name: Upload Release Asset
+      - name: Create GitHub Release
+        if: matrix.os == 'ubuntu-latest'
         uses: ncipollo/release-action@v1
         with:
-          artifacts: zig-out/bin/${{ matrix.executable }}
+          tag: v${{ needs.prepare.outputs.new_version }}
+          name: Release v${{ needs.prepare.outputs.new_version }}
+          artifacts: "./zig-out/bin/fuze-linux-x64,./zig-out/bin/fuze-macos-x64,./zig-out/bin/fuze-windows-x64.exe"
           token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: false
+          body: |
+            ${{ needs.prepare.outputs.changelog }}
+            
+            ${{ join(github.event.commits.*.message, '\n') }}
