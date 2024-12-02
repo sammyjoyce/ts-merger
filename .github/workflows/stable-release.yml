@@ -45,9 +45,11 @@ jobs:
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
 
-      - name: Get version
+      - name: Get Latest Version
         id: version
+        shell: bash
         run: |
+          # Try to get the latest version from build.zig.zon
           version=$(grep '\.version = ' build.zig.zon | cut -d'"' -f2)
           echo "version=$version" >> $GITHUB_OUTPUT
           echo "changelog=$(git log --format=%s --reverse --no-merges v${version}..)" >> $GITHUB_OUTPUT

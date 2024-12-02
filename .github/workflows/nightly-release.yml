@@ -80,6 +80,7 @@ jobs:
 
       - name: Get Latest Version
         id: version
+        shell: bash
         run: |
           # Try to get the latest version from build.zig.zon
           version=$(grep '\.version = ' build.zig.zon | cut -d'"' -f2)
