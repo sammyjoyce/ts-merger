@@ -37,9 +37,9 @@ jobs:
           # Get the latest nightly release tag
           LATEST_NIGHTLY=$(git tag -l "*-nightly.*" | sort -V | tail -n1 || echo "")
           
-          if [ -z "$LATEST_NIGHTLY" ]; then
-            # No previous nightly release exists
-            echo "No previous nightly release found. Running release."
+          if [ -z "$LATEST_NIGHTLY" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # No previous nightly release exists or manual trigger
+            echo "No previous nightly release found or manual trigger. Running release."
             echo "should_run=true" >> $GITHUB_OUTPUT
           else
             # Check for changes in code files since last nightly
