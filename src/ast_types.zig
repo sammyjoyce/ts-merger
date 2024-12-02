@@ -44,7 +44,7 @@ pub const Node = struct {
     pub fn init(allocator: std.mem.Allocator) !*Node {
         const node = try allocator.create(Node);
         errdefer allocator.destroy(node);
-        
+
         node.* = .{
             .kind = .{ .kind = .Unknown, .source = null },
             .value = null,
@@ -59,12 +59,12 @@ pub const Node = struct {
         if (self.kind.source) |source| {
             self.allocator.free(source);
         }
-        
+
         // Clean up value if present
         if (self.value) |value| {
             self.allocator.free(value);
         }
-        
+
         // Clean up children recursively
         for (self.children.items) |child| {
             child.deinit();

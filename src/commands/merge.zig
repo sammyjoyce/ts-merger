@@ -76,7 +76,7 @@ pub fn execute(allocator: std.mem.Allocator, config: *const cli.Config) MergeErr
     // Process source files
     for (source_files) |file| {
         std.debug.print("\nProcessing file: {s}\n", .{file});
-        
+
         // Read source file
         const source_content = std.fs.cwd().readFileAlloc(allocator, file, 1024 * 1024 * 10) catch |err| {
             std.debug.print("Error reading file '{s}': {}\n", .{ file, err });

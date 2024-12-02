@@ -55,7 +55,7 @@ pub const Flow = struct {
 
     pub fn writeToFile(self: *Flow, file_path: []const u8) !void {
         std.debug.print("Starting writeToFile\n", .{});
-        
+
         // Create or truncate the file
         const file = try std.fs.cwd().createFile(file_path, .{
             .truncate = true,
@@ -92,7 +92,7 @@ pub const Flow = struct {
         for (processed.items) |node| {
             std.debug.print("Writing node: {s}\n", .{@tagName(node.kind.kind)});
             try self.writeNode(writer, node);
-            try writer.writeAll("\n");  // Add newline after each top-level node
+            try writer.writeAll("\n"); // Add newline after each top-level node
         }
 
         // Ensure all content is written
@@ -116,11 +116,7 @@ pub const Flow = struct {
 
         // Add spacing based on node type
         switch (node.kind.kind) {
-            .program,
-            .export_statement,
-            .interface_declaration,
-            .class_declaration,
-            .method_definition => try writer.writeAll("\n"),
+            .program, .export_statement, .interface_declaration, .class_declaration, .method_definition => try writer.writeAll("\n"),
             else => {},
         }
 
@@ -138,10 +134,7 @@ pub const Flow = struct {
 
         // Add trailing newline for certain node types
         switch (node.kind.kind) {
-            .program,
-            .export_statement,
-            .interface_declaration,
-            .class_declaration => try writer.writeAll("\n"),
+            .program, .export_statement, .interface_declaration, .class_declaration => try writer.writeAll("\n"),
             else => {},
         }
 

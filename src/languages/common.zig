@@ -1,5 +1,5 @@
 const std = @import("std");
-const Node = @import("../types.zig").Node;
+const Node = @import("../ast_types.zig").Node;
 
 pub const ParseError = error{
     OutOfMemory,

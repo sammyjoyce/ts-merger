@@ -1,5 +1,5 @@
 const std = @import("std");
-const Node = @import("../types.zig").Node;
+const Node = @import("../ast_types.zig").Node;
 const common = @import("../languages/common.zig");
 const rules = @import("rules.zig");
 

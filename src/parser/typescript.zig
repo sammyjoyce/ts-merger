@@ -24,7 +24,7 @@ pub const TypeScriptParser = struct {
 
         const self = try allocator.create(Self);
         errdefer allocator.destroy(self);
-        
+
         self.* = .{
             .allocator = allocator,
             .parser = parser,
@@ -74,12 +74,8 @@ pub const TypeScriptParser = struct {
         self.source = new_source;
 
         // Parse source
-        const tree = tree_sitter.ts_parser_parse_string(
-            self.parser.?,
-            null,  // old_tree
-            source.ptr,
-            @intCast(source.len)
-        ) orelse {
+        const tree = tree_sitter.ts_parser_parse_string(self.parser.?, null, // old_tree
+            source.ptr, @intCast(source.len)) orelse {
             self.logger.err("Failed to parse source", .{});
             return error.ParseFailed;
         };
@@ -133,12 +129,11 @@ pub const TypeScriptParser = struct {
             if (start < source.len and end <= source.len) {
                 const node_text = source[start..end];
                 std.debug.print("Node text for {s}: '{s}'\n", .{ node_type.?, node_text });
-                
+
                 // Store the node text
                 ast_node.value = try allocator.dupe(u8, node_text);
             } else {
-                std.debug.print("Warning: Node bounds out of range. start: {}, end: {}, source len: {}\n", 
-                    .{ start, end, source.len });
+                std.debug.print("Warning: Node bounds out of range. start: {}, end: {}, source len: {}\n", .{ start, end, source.len });
             }
         }
 
