@@ -60,6 +60,8 @@ jobs:
     needs: check_changes
     if: needs.check_changes.outputs.should_run == 'true'
     runs-on: ${{ matrix.os }}
+    outputs:
+      nightly_version: ${{ steps.version.outputs.nightly_version }}
     strategy:
       matrix:
         include:
@@ -144,8 +146,7 @@ jobs:
 
       - name: Build Release
         run: |
-          zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dname=${{ matrix.exe_name }}
-          mv zig-out/bin/${{ matrix.exe_name }} zig-out/bin/${{ matrix.exe_name }}
+          zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dname="${{ matrix.exe_name }}"
 
       - name: List Build Output
         run: |
@@ -184,12 +185,9 @@ jobs:
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ jobs.build.outputs.nightly_version }}
-          name: Nightly Release ${{ jobs.build.outputs.nightly_version }}
-          files: |
-            ./artifacts/fuze-linux-x64
-            ./artifacts/fuze-macos-arm64
-            ./artifacts/fuze-windows-x64.exe
+          tag: ${{ needs.build.outputs.nightly_version }}
+          name: Nightly Release ${{ needs.build.outputs.nightly_version }}
+          artifacts: "./artifacts/fuze-linux-x64,./artifacts/fuze-macos-arm64,./artifacts/fuze-windows-x64.exe"
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: true
