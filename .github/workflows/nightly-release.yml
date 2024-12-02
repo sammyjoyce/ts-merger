@@ -115,6 +115,7 @@ jobs:
           version: master
 
       - name: Cache tree-sitter dependencies
+        id: cache-tree-sitter-dependencies
         uses: actions/cache@v3
         with:
           path: deps/tree-sitter
@@ -123,6 +124,7 @@ jobs:
             ${{ runner.os }}-tree-sitter-
 
       - name: Cache tree-sitter-typescript dependencies
+        id: cache-tree-sitter-typescript-dependencies
         uses: actions/cache@v3
         with:
           path: deps/tree-sitter-typescript
@@ -133,12 +135,13 @@ jobs:
       - name: Clone tree-sitter
         if: steps.cache-tree-sitter-dependencies.outputs.cache-hit != 'true'
         run: |
-          mkdir -p deps
+          rm -rf deps/tree-sitter
           git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
 
       - name: Clone tree-sitter-typescript
         if: steps.cache-tree-sitter-typescript-dependencies.outputs.cache-hit != 'true'
         run: |
+          rm -rf deps/tree-sitter-typescript
           git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
 
       - name: Run Tests
