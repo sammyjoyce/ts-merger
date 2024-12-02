@@ -1,4 +1,3 @@
-```yaml
 name: Nightly Release
 
 on:
@@ -185,4 +184,3 @@ jobs:
           prerelease: true
           allowUpdates: true
           replacesArtifacts: true
-```
