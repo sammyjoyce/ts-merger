@@ -16,7 +16,6 @@ on:
   release:
     types: [created]
 
-# Add permissions needed for creating releases and pushing changes
 permissions:
   contents: write
   packages: write
@@ -147,13 +146,10 @@ jobs:
 
       - name: Create GitHub Release
         if: matrix.os == 'ubuntu-latest'
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: v${{ needs.prepare.outputs.new_version }}
-          release_name: Release v${{ needs.prepare.outputs.new_version }}
+          tag: v${{ needs.prepare.outputs.new_version }}
+          name: Release v${{ needs.prepare.outputs.new_version }}
           draft: false
           prerelease: false
           body: |
@@ -177,11 +173,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
+        uses: ncipollo/release-action@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./zig-out/bin/${{ matrix.executable }}
-          asset_name: fuze-${{ github.repository }}-${{ matrix.asset_name }}
-          asset_content_type: application/octet-stream
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: zig-out/bin/${{ matrix.executable }}
+          token: ${{ secrets.GITHUB_TOKEN }}

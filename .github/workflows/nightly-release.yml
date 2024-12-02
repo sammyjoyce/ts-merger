@@ -10,7 +10,6 @@ on:
     paths-ignore:
       - '.github/**'
 
-# Add permissions needed for creating releases and pushing changes
 permissions:
   contents: write
   packages: write
@@ -76,9 +75,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -169,42 +166,27 @@ jobs:
         run: zig build -Doptimize=ReleaseSafe
 
       - name: Create Nightly Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: nightly-${{ env.NIGHTLY_VERSION }}
-          release_name: Nightly Release ${{ env.NIGHTLY_VERSION }}
+          tag: nightly-${{ env.NIGHTLY_VERSION }}
+          name: Nightly Release ${{ env.NIGHTLY_VERSION }}
           draft: false
           prerelease: true
 
       - name: Upload Release Asset (Linux)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./zig-out/bin/fuze-linux-x64
-          asset_name: fuze-${{ github.repository }}-linux-x64-nightly-${{ env.NIGHTLY_VERSION }}
-          asset_content_type: application/octet-stream
+          artifacts: ./zig-out/bin/fuze-linux-x64
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Release Asset (macOS)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./zig-out/bin/fuze-macos-x64
-          asset_name: fuze-${{ github.repository }}-macos-x64-nightly-${{ env.NIGHTLY_VERSION }}
-          asset_content_type: application/octet-stream
+          artifacts: ./zig-out/bin/fuze-macos-x64
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Release Asset (Windows)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./zig-out/bin/fuze-windows-x64.exe
-          asset_name: fuze-${{ github.repository }}-windows-x64-nightly-${{ env.NIGHTLY_VERSION }}.exe
-          asset_content_type: application/octet-stream
+          artifacts: ./zig-out/bin/fuze-windows-x64.exe
+          token: ${{ secrets.GITHUB_TOKEN }}
