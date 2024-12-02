@@ -13,12 +13,8 @@ on:
           - minor
           - patch
         default: 'auto'
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '.github/**'
-      - '**.md'
+  release:
+    types: [created]
 
 env:
   GITHUB_REPOSITORY: ${{ github.repository }}
@@ -43,16 +39,16 @@ jobs:
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
 
-      - name: Get Current Version
-        id: current
-        run: |
-          CURRENT_VERSION=$(grep 'version = ' build.zig.zon | sed 's/.*version = "\(.*\)".*/\1/')
-          echo "version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Calculate New Version
+      - name: Get version
         id: version
         run: |
-          CURRENT_VERSION="${{ steps.current.outputs.version }}"
+          version=$(grep '\.version = ' build.zig.zon | cut -d'"' -f2)
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Calculate New Version
+        id: new_version
+        run: |
+          CURRENT_VERSION="${{ steps.version.outputs.version }}"
           echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
           
           if [[ "${{ github.event.inputs.force_bump }}" != "auto" && "${{ github.event.inputs.force_bump }}" != "" ]]; then

@@ -74,9 +74,16 @@ jobs:
       - name: Generate Nightly Version
         id: versioning
         run: |
-          # Get the latest stable version from tags
-          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
-          LATEST_VERSION=${LATEST_TAG#v}
+          # Try to get the latest stable version from tags, fallback to build.zig.zon version if no tags exist
+          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1` 2>/dev/null || echo "")
+          if [ -z "$LATEST_TAG" ]; then
+            # No tags exist, use version from build.zig.zon
+            LATEST_VERSION=$(grep '\.version = ' build.zig.zon | cut -d'"' -f2)
+            echo "No tags found, using version from build.zig.zon: ${LATEST_VERSION}"
+          else
+            LATEST_VERSION=${LATEST_TAG#v}
+            echo "Found latest tag version: ${LATEST_VERSION}"
+          fi
 
           # Validate the version format
           if ! python3 -c "import re; import sys; sys.exit(0 if re.match(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$', '$LATEST_VERSION') else 1)"; then
