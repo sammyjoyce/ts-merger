@@ -65,15 +65,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-linux-gnu
-            exe_name: fuze-linux-x64
-          - os: macos-latest
-            target: aarch64-macos
-            exe_name: fuze-macos-arm64
-          - os: windows-latest
-            target: x86_64-windows-gnu
-            exe_name: fuze-windows-x64.exe
+          - {os: ubuntu-latest, target: x86_64-linux-gnu, exe_name: fuze-linux-x64}
+          - {os: macos-latest, target: aarch64-macos, exe_name: fuze-macos-arm64}
+          - {os: windows-latest, target: x86_64-windows-gnu, exe_name: fuze-windows-x64.exe}
 
     steps:
       - uses: actions/checkout@v3
@@ -119,29 +113,39 @@ jobs:
         uses: actions/cache@v3
         with:
           path: deps/tree-sitter
-          key: ${{ runner.os }}-tree-sitter-${{ hashFiles('deps/tree-sitter/**') }}
+          key: ${{ matrix.os }}-tree-sitter-${{ hashFiles('deps/tree-sitter/**') }}
           restore-keys: |
-            ${{ runner.os }}-tree-sitter-
+            ${{ matrix.os }}-tree-sitter-
 
       - name: Cache tree-sitter-typescript dependencies
         id: cache-tree-sitter-typescript-dependencies
         uses: actions/cache@v3
         with:
           path: deps/tree-sitter-typescript
-          key: ${{ runner.os }}-tree-sitter-typescript-${{ hashFiles('deps/tree-sitter-typescript/**') }}
+          key: ${{ matrix.os }}-tree-sitter-typescript-${{ hashFiles('deps/tree-sitter-typescript/**') }}
           restore-keys: |
-            ${{ runner.os }}-tree-sitter-typescript-
+            ${{ matrix.os }}-tree-sitter-typescript-
 
       - name: Clone tree-sitter
         if: steps.cache-tree-sitter-dependencies.outputs.cache-hit != 'true'
+        shell: ${{ matrix.os == 'Windows' && 'pwsh' || 'bash' }}
         run: |
-          rm -rf deps/tree-sitter
+          if ($IsWindows) {
+            Remove-Item -Path "deps/tree-sitter" -Recurse -Force -ErrorAction SilentlyContinue
+          } else {
+            rm -rf deps/tree-sitter
+          }
           git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
 
       - name: Clone tree-sitter-typescript
         if: steps.cache-tree-sitter-typescript-dependencies.outputs.cache-hit != 'true'
+        shell: ${{ matrix.os == 'Windows' && 'pwsh' || 'bash' }}
         run: |
-          rm -rf deps/tree-sitter-typescript
+          if ($IsWindows) {
+            Remove-Item -Path "deps/tree-sitter-typescript" -Recurse -Force -ErrorAction SilentlyContinue
+          } else {
+            rm -rf deps/tree-sitter-typescript
+          }
           git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
 
       - name: Run Tests
@@ -154,7 +158,7 @@ jobs:
       - name: List Build Output
         run: |
           ls -la zig-out/bin/
-        shell: bash
+        shell: ${{ matrix.os == 'Windows' && 'pwsh' || 'bash' }}
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v3
