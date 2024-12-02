@@ -16,7 +16,42 @@ env:
   GITHUB_REPO: ${{ github.event.repository.name }}
 
 jobs:
+  check_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Check for code changes
+        id: check
+        run: |
+          # Get the latest nightly release tag
+          LATEST_NIGHTLY=$(git tag -l "*-nightly.*" | sort -V | tail -n1 || echo "")
+          
+          if [ -z "$LATEST_NIGHTLY" ]; then
+            # No previous nightly release exists
+            echo "No previous nightly release found. Running release."
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            # Check for changes in code files since last nightly
+            CHANGES=$(git diff --name-only $LATEST_NIGHTLY...HEAD -- '*.zig' '*.ts' '*.js' '*.py' || echo "")
+            
+            if [ -n "$CHANGES" ]; then
+              echo "Changes detected since last nightly release:"
+              echo "$CHANGES"
+              echo "should_run=true" >> $GITHUB_OUTPUT
+            else
+              echo "No code changes since last nightly release."
+              echo "should_run=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
   nightly:
+    needs: check_changes
+    if: needs.check_changes.outputs.should_run == 'true'
     runs-on: ubuntu-latest  # Use a specific runner for consistency
 
     steps:

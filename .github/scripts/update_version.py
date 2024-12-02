@@ -22,8 +22,8 @@ def update_version(file_path, new_version):
     with open(file_path, 'r') as file:
         content = file.read()
 
-    # Regex to find version = "X.Y.Z" and replace
-    new_content, count = re.subn(r'^version\s*=\s*".*"', f'version = "{new_version}"', content, flags=re.MULTILINE)
+    # Regex to find .version = "X.Y.Z" and replace
+    new_content, count = re.subn(r'\.version\s*=\s*".*"', f'.version = "{new_version}"', content, flags=re.MULTILINE)
 
     if count == 0:
         print("No version line found to update.")
