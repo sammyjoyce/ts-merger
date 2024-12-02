@@ -33,6 +33,7 @@ jobs:
 
       - name: Check for code changes
         id: check
+        shell: bash
         run: |
           # Get the latest nightly release tag
           LATEST_NIGHTLY=$(git tag -l "*-nightly.*" | sort -V | tail -n1 || echo "")
@@ -69,7 +70,7 @@ jobs:
             target: aarch64-macos
             exe_name: fuze-macos-arm64
           - os: windows-latest
-            target: x86_64-windows-msvc 
+            target: x86_64-windows-gnu
             exe_name: fuze-windows-x64.exe
 
     steps:
