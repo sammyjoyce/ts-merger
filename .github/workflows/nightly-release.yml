@@ -1,3 +1,4 @@
+```yaml
 name: Nightly Release
 
 on:
@@ -165,14 +166,23 @@ jobs:
       - name: Build Nightly Release
         run: zig build -Doptimize=ReleaseSafe
 
+      - name: Archive Binaries
+        run: |
+          mkdir -p release_assets
+          cp zig-out/bin/fuze-linux-x64 release_assets/
+          cp zig-out/bin/fuze-macos-x64 release_assets/
+          cp zig-out/bin/fuze-windows-x64.exe release_assets/
+        shell: bash
+
       - name: Create Nightly Release
         uses: ncipollo/release-action@v1
         with:
           tag: nightly-${{ env.NIGHTLY_VERSION }}
           name: Nightly Release ${{ env.NIGHTLY_VERSION }}
-          artifacts: "./zig-out/bin/fuze-linux-x64,./zig-out/bin/fuze-macos-x64,./zig-out/bin/fuze-windows-x64.exe"
+          artifacts: "release_assets/fuze-linux-x64,release_assets/fuze-macos-x64,release_assets/fuze-windows-x64.exe"
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: true
           allowUpdates: true
           replacesArtifacts: true
+```
