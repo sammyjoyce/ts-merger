@@ -1,6 +1,6 @@
 .{
     .name = "fuze",
-    .version = "0.0.1-nightly.20241202",
+    .version = "0.0.1",
     .minimum_zig_version = "0.13.0",
     .dependencies = .{
         .clap = .{
