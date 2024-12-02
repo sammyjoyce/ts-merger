@@ -164,7 +164,7 @@ jobs:
             ${{ join(github.event.commits.*.message, '\n') }}
 
       - name: Run Tests
-        run: zig test
+        run: zig build test
 
       - name: Build Release
         run: zig build -Doptimize=ReleaseSafe

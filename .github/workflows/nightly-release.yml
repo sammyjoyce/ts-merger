@@ -163,7 +163,7 @@ jobs:
           git push
 
       - name: Run Tests
-        run: zig test
+        run: zig build test
 
       - name: Build Nightly Release
         run: zig build -Doptimize=ReleaseSafe
