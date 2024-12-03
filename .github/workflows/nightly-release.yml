@@ -165,7 +165,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          ls -la zig-out/bin/
+          Get-ChildItem -Path "zig-out/bin/" -Force
 
       - name: List Build Output (Unix)
         if: matrix.os != 'windows-latest'
