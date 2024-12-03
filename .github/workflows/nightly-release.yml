@@ -205,7 +205,7 @@ jobs:
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
-          name: fuze-windows-x64.exe
+          name: fuze-windows-x64
           path: ./artifacts
 
       - name: Create GitHub Release
