@@ -3,7 +3,7 @@
 set -e
 
 # Get the latest release URL
-REPO="codeium/ts-merger"
+REPO="sammyjoyce/ts-merger"
 LATEST_RELEASE_URL="https://api.github.com/repos/$REPO/releases/latest"
 
 # Detect OS and architecture

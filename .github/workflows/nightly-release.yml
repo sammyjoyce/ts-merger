@@ -165,7 +165,13 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          Get-ChildItem -Path "zig-out/bin/" -Force
+          $buildPath = "zig-out/bin"
+          Write-Host "Checking build directory contents:"
+          if (Test-Path $buildPath) {
+            Get-ChildItem -Path $buildPath -Force
+          } else {
+            Write-Host "Build directory does not exist!"
+          }
 
       - name: List Build Output (Unix)
         if: matrix.os != 'windows-latest'
@@ -174,7 +180,7 @@ jobs:
           ls -la zig-out/bin/
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.exe_name }}
           path: zig-out/bin/${{ matrix.exe_name }}
@@ -185,19 +191,19 @@ jobs:
     if: needs.check_changes.outputs.should_run == 'true'
     steps:
       - name: Download Linux Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: fuze-linux-x64
           path: ./artifacts
 
       - name: Download macOS Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: fuze-macos-arm64
           path: ./artifacts
 
       - name: Download Windows Artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: fuze-windows-x64.exe
           path: ./artifacts
