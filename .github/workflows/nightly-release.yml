@@ -67,7 +67,7 @@ jobs:
         include:
           - {os: ubuntu-latest, target: x86_64-linux-gnu, exe_name: fuze-linux-x64}
           - {os: macos-latest, target: aarch64-macos, exe_name: fuze-macos-arm64}
-          - {os: windows-latest, target: x86_64-windows-gnu, exe_name: fuze-windows-x64.exe}
+          - {os: windows-latest, target: x86_64-windows-gnu, exe_name: fuze-windows-x64}
 
     steps:
       - uses: actions/checkout@v3
@@ -187,7 +187,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.exe_name }}
-          path: zig-out/bin/${{ matrix.exe_name }}
+          path: zig-out/bin/${{ matrix.exe_name }}${{ runner.os == 'Windows' && '.exe' || '' }}
           if-no-files-found: error
 
   create_release:
