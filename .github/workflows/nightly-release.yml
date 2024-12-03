@@ -25,13 +25,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
+      nightly_version: ${{ steps.check.outputs.nightly_version }}
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check for code changes
+      - name: Check for code changes and set version
         id: check
         shell: bash
         run: |
@@ -41,7 +42,7 @@ jobs:
           if [ -z "$LATEST_NIGHTLY" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             # No previous nightly release exists or manual trigger
             echo "No previous nightly release found or manual trigger. Running release."
-            echo "should_run=true" >> $GITHUB_OUTPUT
+            SHOULD_RUN=true
           else
             # Check for changes in code files since last nightly
             CHANGES=$(git diff --name-only $LATEST_NIGHTLY...HEAD -- '*.zig' '*.ts' '*.js' '*.py' || echo "")
@@ -49,26 +50,44 @@ jobs:
             if [ -n "$CHANGES" ]; then
               echo "Changes detected since last nightly release:"
               echo "$CHANGES"
-              echo "should_run=true" >> $GITHUB_OUTPUT
+              SHOULD_RUN=true
             else
               echo "No code changes since last nightly release."
-              echo "should_run=false" >> $GITHUB_OUTPUT
+              SHOULD_RUN=false
             fi
+          fi
+
+          echo "should_run=$SHOULD_RUN" >> $GITHUB_OUTPUT
+
+          if [ "$SHOULD_RUN" = true ]; then
+            # Get the latest version from build.zig.zon
+            VERSION=$(grep '\.version = ' build.zig.zon | cut -d'"' -f2)
+            TIMESTAMP=$(date -u +"%Y%m%d")
+            NIGHTLY_VERSION="${VERSION}-nightly.${TIMESTAMP}"
+            echo "nightly_version=${NIGHTLY_VERSION}" >> $GITHUB_OUTPUT
+          else
+            echo "nightly_version=" >> $GITHUB_OUTPUT
           fi
 
   build:
     needs: check_changes
     if: needs.check_changes.outputs.should_run == 'true'
     runs-on: ${{ matrix.os }}
-    outputs:
-      nightly_version: ${{ steps.version.outputs.nightly_version }}
     strategy:
       matrix:
         include:
-          - {os: ubuntu-latest, target: x86_64-linux-gnu, exe_name: fuze-linux-x64}
-          - {os: macos-latest, target: aarch64-macos, exe_name: fuze-macos-arm64}
-          - {os: windows-latest, target: x86_64-windows-gnu, exe_name: fuze-windows-x64}
-
+          - os: ubuntu-latest
+            target: x86_64-linux-gnu
+            exe_name: fuze-linux-x64
+          - os: macos-latest
+            target: aarch64-macos
+            exe_name: fuze-macos-arm64
+          - os: windows-latest
+            target: x86_64-windows-gnu
+            exe_name: fuze-windows-x64
+    outputs:
+      # Only the first job's output will be captured; alternatively, manage version differently
+      build_nightly_version: ${{ needs.check_changes.outputs.nightly_version }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -79,13 +98,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          # Try to get the latest version from build.zig.zon
-          version=$(grep '\.version = ' build.zig.zon | cut -d'"' -f2)
-          echo "version=$version" >> $GITHUB_OUTPUT
-          
-          # Generate nightly version with timestamp
-          timestamp=$(date -u +"%Y%m%d")
-          echo "nightly_version=${version}-nightly.${timestamp}" >> $GITHUB_OUTPUT
+          echo "nightly_version=${{ needs.check_changes.outputs.nightly_version }}" >> $GITHUB_OUTPUT
 
       - name: Build Installation Scripts
         run: python3 .github/scripts/build_scripts.py
@@ -108,86 +121,52 @@ jobs:
         with:
           version: master
 
+      - name: Verify Zig installation
+        run: |
+          zig version
+          echo "Zig executable location:"
+          which zig
+
       - name: Cache tree-sitter dependencies
         id: cache-tree-sitter-dependencies
         uses: actions/cache@v3
         with:
           path: deps/tree-sitter
-          key: ${{ matrix.os }}-tree-sitter-${{ hashFiles('deps/tree-sitter/**') }}
+          key: tree-sitter-${{ runner.os }}-${{ hashFiles('deps/tree-sitter/**') }}
           restore-keys: |
-            ${{ matrix.os }}-tree-sitter-
+            tree-sitter-${{ runner.os }}-
 
       - name: Cache tree-sitter-typescript dependencies
         id: cache-tree-sitter-typescript-dependencies
         uses: actions/cache@v3
         with:
           path: deps/tree-sitter-typescript
-          key: ${{ matrix.os }}-tree-sitter-typescript-${{ hashFiles('deps/tree-sitter-typescript/**') }}
+          key: tree-sitter-typescript-${{ runner.os }}-${{ hashFiles('deps/tree-sitter-typescript/**') }}
           restore-keys: |
-            ${{ matrix.os }}-tree-sitter-typescript-
+            tree-sitter-typescript-${{ runner.os }}-
 
-      - name: Clone tree-sitter (Windows)
-        if: matrix.os == 'windows-latest' && steps.cache-tree-sitter-dependencies.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          Remove-Item -Path "deps/tree-sitter" -Recurse -Force -ErrorAction SilentlyContinue
-          git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
-
-      - name: Clone tree-sitter (Unix)
-        if: matrix.os != 'windows-latest' && steps.cache-tree-sitter-dependencies.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          rm -rf deps/tree-sitter
-          git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
-
-      - name: Clone tree-sitter-typescript (Windows)
-        if: matrix.os == 'windows-latest' && steps.cache-tree-sitter-typescript-dependencies.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          Remove-Item -Path "deps/tree-sitter-typescript" -Recurse -Force -ErrorAction SilentlyContinue
-          git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
-
-      - name: Clone tree-sitter-typescript (Unix)
-        if: matrix.os != 'windows-latest' && steps.cache-tree-sitter-typescript-dependencies.outputs.cache-hit != 'true'
-        shell: bash
-        run: |
-          rm -rf deps/tree-sitter-typescript
-          git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
+      - name: Clone tree-sitter repositories
+        if: steps.cache-tree-sitter-dependencies.outputs.cache-hit != 'true' || steps.cache-tree-sitter-typescript-dependencies.outputs.cache-hit != 'true'
+        run: python3 .github/scripts/clone_repos.py
 
       - name: Run Tests
         run: zig build test
 
       - name: Build Release
         run: |
-          zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dname="${{ matrix.exe_name }}"
-          
-      - name: List Build Output (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          Write-Host "Build Path Contents:"
-          if (!(Test-Path "zig-out")) {
-            Write-Host "zig-out directory does not exist!"
-            exit 1
-          }
-          if (!(Test-Path "zig-out/bin")) {
-            Write-Host "zig-out/bin directory does not exist!"
-            exit 1
-          }
-          Get-ChildItem -Path "zig-out" -Recurse -Force | Select-Object FullName, Length
-          
-      - name: List Build Output (Unix)
-        if: matrix.os != 'windows-latest'
-        shell: bash
-        run: |
-          ls -la zig-out/bin/
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            EXEC_NAME="${{ matrix.exe_name }}.exe"
+          else
+            EXEC_NAME="${{ matrix.exe_name }}"
+          fi
+          zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dname="${EXEC_NAME}"
 
       - name: Upload Build Artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.exe_name }}
-          path: zig-out/bin/${{ matrix.exe_name }}${{ runner.os == 'Windows' && '.exe' || '' }}
+          path: zig-out/bin/${{ matrix.os == 'windows-latest' && format('{0}.exe', matrix.exe_name) || matrix.exe_name }}
           if-no-files-found: error
 
   create_release:
@@ -195,30 +174,29 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.check_changes.outputs.should_run == 'true'
     steps:
-      - name: Download Linux Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: fuze-linux-x64
-          path: ./artifacts
+      - name: Create artifacts directory
+        run: mkdir -p ./artifacts
 
-      - name: Download macOS Artifact
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: fuze-macos-arm64
           path: ./artifacts
+          # Remove `merge-multiple: true` unless necessary
 
-      - name: Download Windows Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: fuze-windows-x64
-          path: ./artifacts
+      - name: Display structure of downloaded files
+        run: |
+          echo "Downloaded artifacts:"
+          ls -R ./artifacts/
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ needs.build.outputs.nightly_version }}
-          name: Nightly Release ${{ needs.build.outputs.nightly_version }}
-          artifacts: "./artifacts/fuze-linux-x64,./artifacts/fuze-macos-arm64,./artifacts/fuze-windows-x64.exe"
+          tag: ${{ needs.check_changes.outputs.nightly_version }}
+          name: Nightly Release ${{ needs.check_changes.outputs.nightly_version }}
+          artifacts: |
+            ./artifacts/fuze-linux-x64
+            ./artifacts/fuze-macos-arm64
+            ./artifacts/fuze-windows-x64.exe
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: true
