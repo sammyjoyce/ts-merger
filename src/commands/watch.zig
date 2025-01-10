@@ -1,8 +1,8 @@
 const std = @import("std");
-const cli = @import("cli");
+const cli = @import("commands/cli");
 const watcher = @import("watcher");
 const parser = @import("parser");
-const flow = @import("flow");
+const flow = @import("core/flow");
 
 const WatchContext = struct {
     ts_parser: *parser.Parser,

@@ -1,7 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 const parser = @import("parser");
-const flow = @import("flow");
+const flow = @import("core/flow");
 
 test "merge TypeScript files" {
     const allocator = testing.allocator;

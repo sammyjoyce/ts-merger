@@ -112,8 +112,8 @@ jobs:
         id: cache-tree-sitter-dependencies
         uses: actions/cache@v3
         with:
-          path: deps/tree-sitter
-          key: ${{ matrix.os }}-tree-sitter-${{ hashFiles('deps/tree-sitter/**') }}
+          path: pkg/tree-sitter
+          key: ${{ matrix.os }}-tree-sitter-${{ hashFiles('pkg/tree-sitter/**') }}
           restore-keys: |
             ${{ matrix.os }}-tree-sitter-
 
@@ -121,8 +121,8 @@ jobs:
         id: cache-tree-sitter-typescript-dependencies
         uses: actions/cache@v3
         with:
-          path: deps/tree-sitter-typescript
-          key: ${{ matrix.os }}-tree-sitter-typescript-${{ hashFiles('deps/tree-sitter-typescript/**') }}
+          path: pkg/tree-sitter-typescript
+          key: ${{ matrix.os }}-tree-sitter-typescript-${{ hashFiles('pkg/tree-sitter-typescript/**') }}
           restore-keys: |
             ${{ matrix.os }}-tree-sitter-typescript-
 
@@ -130,29 +130,29 @@ jobs:
         if: matrix.os == 'windows-latest' && steps.cache-tree-sitter-dependencies.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          Remove-Item -Path "deps/tree-sitter" -Recurse -Force -ErrorAction SilentlyContinue
-          git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
+          Remove-Item -Path "pkg/tree-sitter" -Recurse -Force -ErrorAction SilentlyContinue
+          git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git pkg/tree-sitter
 
       - name: Clone tree-sitter (Unix)
         if: matrix.os != 'windows-latest' && steps.cache-tree-sitter-dependencies.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          rm -rf deps/tree-sitter
-          git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
+          rm -rf pkg/tree-sitter
+          git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git pkg/tree-sitter
 
       - name: Clone tree-sitter-typescript (Windows)
         if: matrix.os == 'windows-latest' && steps.cache-tree-sitter-typescript-dependencies.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          Remove-Item -Path "deps/tree-sitter-typescript" -Recurse -Force -ErrorAction SilentlyContinue
-          git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
+          Remove-Item -Path "pkg/tree-sitter-typescript" -Recurse -Force -ErrorAction SilentlyContinue
+          git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git pkg/tree-sitter-typescript
 
       - name: Clone tree-sitter-typescript (Unix)
         if: matrix.os != 'windows-latest' && steps.cache-tree-sitter-typescript-dependencies.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          rm -rf deps/tree-sitter-typescript
-          git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
+          rm -rf pkg/tree-sitter-typescript
+          git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git pkg/tree-sitter-typescript
 
       - name: Run Tests
         run: zig build test

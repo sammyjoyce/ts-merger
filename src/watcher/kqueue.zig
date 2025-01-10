@@ -6,19 +6,20 @@ const mod = @import("mod.zig");
 const EVENTS_MAX = 32;
 
 pub const KqueueWatcher = struct {
-    allocator: std.mem.Allocator,
-    kq: i32,
-    watched_paths: std.StringHashMap(*WatchedPath),
-    thread: ?std.Thread,
-    running: std.atomic.Value(bool),
-    callback: ?mod.WatchCallback,
-    dir_scan_time: std.StringHashMap(i64),
-
-    const WatchedPath = struct {
+    const WatchEntry = struct {
         path: []const u8,
         fd: i32,
         is_dir: bool,
+        walker: ?std.fs.IterableDir.Walker,
     };
+
+    allocator: std.mem.Allocator,
+    kq: i32,
+    watches: std.StringHashMap(*WatchEntry),
+    dir_fds: std.AutoHashMap(i32, void),
+    thread: ?std.Thread,
+    running: std.atomic.Value(bool),
+    callback: ?mod.WatchCallback,
 
     pub fn init(allocator: std.mem.Allocator) !KqueueWatcher {
         const kq = try posix.kqueue();
@@ -40,20 +41,17 @@ pub const KqueueWatcher = struct {
             self.stop();
         }
 
-        var it = self.watched_paths.iterator();
+        var it = self.watches.iterator();
         while (it.next()) |entry| {
             posix.close(entry.value_ptr.*.fd);
+            if (entry.value_ptr.*.walker) |*walker| {
+                walker.deinit();
+            }
             self.allocator.free(entry.value_ptr.*.path);
             self.allocator.destroy(entry.value_ptr.*);
         }
-        self.watched_paths.deinit();
-
-        var dir_it = self.dir_scan_time.keyIterator();
-        while (dir_it.next()) |key| {
-            self.allocator.free(key.*);
-        }
-        self.dir_scan_time.deinit();
-
+        self.watches.deinit();
+        self.dir_fds.deinit();
         posix.close(self.kq);
     }
 
@@ -112,62 +110,51 @@ pub const KqueueWatcher = struct {
             if (entry.kind != .file) continue;
             if (!std.mem.endsWith(u8, entry.name, ".ts")) continue;
 
-            const abs_path = try std.fs.path.join(self.allocator, &.{ dir_path, entry.name });
+            const abs_path = try std.fs.path.joinZ(self.allocator, &.{ dir_path, entry.name });
             defer self.allocator.free(abs_path);
 
             try self.watchSingleFile(abs_path);
         }
     }
 
-    fn watchDirectory(self: *KqueueWatcher, dir_path: []const u8) !void {
-        // Skip if already watched
-        if (self.watched_paths.contains(dir_path)) return;
+    fn watchDirectory(self: *KqueueWatcher, path: []const u8, recursive: bool) !void {
+        if (self.watches.contains(path)) return;
 
-        const flags = std.fs.File.OpenFlags{
-            .mode = .read_only,
-            .lock_nonblocking = true,
+        var dir = try std.fs.openIterableDirAbsolute(path, .{});
+        errdefer dir.close();
+
+        const wd_entry = try self.allocator.create(WatchEntry);
+        errdefer self.allocator.destroy(wd_entry);
+
+        wd_entry.* = .{
+            .path = try self.allocator.dupe(u8, path),
+            .fd = dir.dir.fd,
+            .is_dir = true,
+            .walker = if (recursive) try std.fs.IterableDir.Walker.init(self.allocator, dir) else null,
         };
-
-        const fd = try std.fs.openFileAbsolute(dir_path, flags);
-        errdefer fd.close();
-
-        var watched = try self.allocator.create(WatchedPath);
-        errdefer self.allocator.destroy(watched);
-
-        watched.path = try self.allocator.dupe(u8, dir_path);
-        errdefer self.allocator.free(watched.path);
-        watched.fd = fd.handle;
-        watched.is_dir = true;
-
-        // SAFETY: This array is only used within this function for temporary storage of kqueue events
-        var kevs: [1]posix.Kevent = undefined;
-        const flags_note = c.NOTE_DELETE | c.NOTE_WRITE | c.NOTE_RENAME | c.NOTE_EXTEND | c.NOTE_ATTRIB;
-
-        kevs[0] = posix.Kevent{
-            .ident = @intCast(fd.handle),
-            .filter = c.EVFILT_VNODE,
-            .flags = c.EV_ADD | c.EV_CLEAR,
-            .fflags = flags_note,
-            .data = 0,
-            .udata = 0,
-        };
-
-        _ = try posix.kevent(self.kq, &kevs, &[0]posix.Kevent{}, null);
-        try self.watched_paths.put(watched.path, watched);
-
-        // Scan for TypeScript files
-        try self.scanDirectory(dir_path);
+        
+        try self.addKqueueEvent(dir.dir.fd, c.NOTE_WRITE | c.NOTE_DELETE);
+        try self.watches.put(wd_entry.path, wd_entry);
+        try self.dir_fds.put(dir.dir.fd, {});
+        
+        if (recursive) {
+            while (try wd_entry.walker.?.next()) |entry| {
+                const full_path = try std.fs.path.join(self.allocator, &.{path, entry.name});
+                if (entry.kind == .directory) {
+                    try self.watchDirectory(full_path, true);
+                } else if (std.mem.endsWith(u8, entry.name, ".ts")) {
+                    try self.watchSingleFile(full_path);
+                }
+            }
+        }
     }
 
-    pub fn watch(self: *KqueueWatcher, path: []const u8) !void {
-        // Check if it's a directory
-        const stat = try std.fs.cwd().statFile(path);
-        const is_dir = stat.kind == .directory;
-
-        if (is_dir) {
-            try self.watchDirectory(path);
+    pub fn watch(self: *KqueueWatcher, base_path: []const u8) !void {
+        const st = try std.fs.cwd().statFile(base_path);
+        if (st.kind == .directory) {
+            try self.watchDirectory(base_path, true); // Recursive flag
         } else {
-            try self.watchSingleFile(path);
+            try self.watchSingleFile(base_path);
         }
     }
 

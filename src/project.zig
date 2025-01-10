@@ -1,29 +1,36 @@
 const std = @import("std");
-const ast_types = @import("ast_types.zig");
+const ast_types = @import("core/ast/ast.zig");
 const parser_mod = @import("parser/mod.zig");
 const typescript = @import("parser/typescript.zig");
+const flow = @import("core/flow.zig");
+const Logger = @import("utils/log.zig").Logger;
 
 pub const Project = struct {
     allocator: std.mem.Allocator,
-    nodes: std.ArrayList(*ast_types.Node),
+    flow: *flow.Flow,
+    parser: *parser_mod.Parser,
+    owned_nodes: std.ArrayList(*ast_types.Node),
 
-    pub fn init(allocator: std.mem.Allocator) !Project {
-        return Project{
+    pub fn init(allocator: std.mem.Allocator, parser: *parser_mod.Parser) !Project {
+        return .{
             .allocator = allocator,
-            .nodes = std.ArrayList(*ast_types.Node).init(allocator),
+            .flow = try flow.Flow.init(allocator),
+            .parser = parser,
+            .owned_nodes = std.ArrayList(*ast_types.Node).init(allocator),
         };
     }
 
     pub fn deinit(self: *Project) void {
-        for (self.nodes.items) |node| {
+        for (self.owned_nodes.items) |node| {
             node.deinit();
             self.allocator.destroy(node);
         }
-        self.nodes.deinit();
+        self.owned_nodes.deinit();
+        self.flow.deinit();
     }
 
     pub fn getNodes(self: *Project) []const *ast_types.Node {
-        return self.nodes.items;
+        return self.owned_nodes.items;
     }
 
     pub fn parseFile(self: *Project, file_path: []const u8) !void {
@@ -31,46 +38,43 @@ pub const Project = struct {
         defer file.close();
 
         const file_size = try file.getEndPos();
-        if (file_size > std.math.maxInt(u32)) {
-            return error.FileTooLarge;
+        const max_size = 1024 * 1024 * 10; // 10MB limit
+        if (file_size > max_size) {
+            Logger.scoped(.Error, "project").err(
+                "File too large: {s} (max {})",
+                .{ file_path, max_size }
+            );
+            return error.FileSizeExceeded;
         }
 
-        // Corrected @intCast usage: specify target type and value
         const source = try self.allocator.alloc(u8, @as(usize, @intCast(file_size)));
-        defer self.allocator.free(source);
+        // Source buffer ownership transferred to nodes
 
         const bytes_read = try file.readAll(source);
-        if (bytes_read != @as(usize, @intCast(file_size))) {
+        if (bytes_read != source.len) {
+            Logger.scoped(.Error, "project").err(
+                "Partial read of {s}: read {}/{} bytes",
+                .{ file_path, bytes_read, source.len }
+            );
+            std.debug.print("File read error: {s}\n", .{file_path});
             return error.FileReadError;
         }
 
-        var parser = try typescript.TypeScriptParser.init(self.allocator);
-        defer parser.deinit();
+        // Clear previous nodes before parsing new ones
+        self.parser.nodes.clearRetainingCapacity();
+        try self.parser.parse(source);
 
-        try parser.parse(source);
-        for (parser.nodes.items) |node| {
-            const node_copy = try node.clone(self.allocator);
-            try self.nodes.append(node_copy);
+        // Transfer ownership directly from parser
+        try self.owned_nodes.ensureTotalCapacity(self.parser.nodes.items.len);
+        for (self.parser.nodes.items) |node| {
+            node.allocator = self.allocator;  // Update allocator ownership
+            try self.flow.addNode(node);
+            self.owned_nodes.appendAssumeCapacity(node);
         }
+        self.parser.nodes.clearRetainingCapacity();  // Clear parser's references
     }
 
     pub fn writeToFile(self: *Project, file_path: []const u8) !void {
-        const file = try std.fs.cwd().createFile(file_path, .{});
-        defer file.close();
-
-        var buffered = std.io.bufferedWriter(file.writer());
-        var writer = buffered.writer();
-
-        for (self.nodes.items) |node| {
-            if (node.value) |value| {
-                // Ensure that 'value' is a valid null-terminated string
-                try writer.print("{s}\n", .{value});
-            } else {
-                // Handle the case where 'node.value' is null
-                try writer.print("Invalid node value\n", .{});
-            }
-        }
-
-        try buffered.flush();
+        try self.flow.writeToFile(file_path);
     }
 };

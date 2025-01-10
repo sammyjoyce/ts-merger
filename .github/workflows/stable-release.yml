@@ -75,11 +75,14 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            exe_name: fuze-linux-x64
-          - os: macos-latest
+          - os: ubuntu-22.04
+            zig_target: x86_64-linux
+            exe_name: fuze-linux-x86_64
+          - os: macos-13
+            zig_target: aarch64-macos
             exe_name: fuze-macos-arm64
-          - os: windows-latest
+          - os: windows-2022
+            zig_target: x86_64-windows
             exe_name: fuze-windows-x64.exe
 
     steps:
@@ -103,32 +106,27 @@ jobs:
         with:
           version: master
 
-      - name: Cache tree-sitter dependencies
+      - name: Cache Zig Dependencies
         uses: actions/cache@v3
         with:
-          path: deps/tree-sitter
-          key: ${{ runner.os }}-tree-sitter-${{ hashFiles('deps/tree-sitter/**') }}
+          path: |
+            pkg/tree-sitter
+            pkg/tree-sitter-typescript
+            ~/.cache/zig
+          key: ${{ runner.os }}-zig-pkg-${{ hashFiles('build.zig') }}
           restore-keys: |
-            ${{ runner.os }}-tree-sitter-
-
-      - name: Cache tree-sitter-typescript dependencies
-        uses: actions/cache@v3
-        with:
-          path: deps/tree-sitter-typescript
-          key: ${{ runner.os }}-tree-sitter-typescript-${{ hashFiles('deps/tree-sitter-typescript/**') }}
-          restore-keys: |
-            ${{ runner.os }}-tree-sitter-typescript-
+            ${{ runner.os }}-zig-pkg-
 
       - name: Clone tree-sitter
         if: steps.cache-tree-sitter-dependencies.outputs.cache-hit != 'true'
         run: |
-          mkdir -p deps
-          git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
+          mkdir -p pkg
+          git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git pkg/tree-sitter
 
       - name: Clone tree-sitter-typescript
         if: steps.cache-tree-sitter-typescript-dependencies.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
+          git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git pkg/tree-sitter-typescript
 
       - name: Update build.zig.zon with Release Version
         run: |
@@ -140,19 +138,31 @@ jobs:
 
       - name: Build Release
         run: |
-          zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast -Dname=${{ matrix.exe_name }}
+          zig build -Dtarget=${{ matrix.zig_target }} \
+                    -Doptimize=ReleaseSafe \
+                    -Dstrip=true \
+                    -Dcpu=baseline
+        env:
+          ZIG_GLOBAL_CACHE_DIR: ${{ runner.temp }}/zig-cache
 
       - name: List Build Output
         run: |
           ls -la zig-out/bin/
         shell: bash
 
-      - name: Upload Build Artifact
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.exe_name }}
           path: zig-out/bin/${{ matrix.exe_name }}
-          if-no-files-found: error
+          retention-days: 3
+
+      - name: Create Universal macOS Binary
+        if: matrix.os == 'macos-13'
+        run: |
+          lipo -create -output fuze-universal \
+            zig-out/bin/fuze-macos-* 
+        shell: bash
 
       - name: Create Release Tag
         if: matrix.os == 'ubuntu-latest'

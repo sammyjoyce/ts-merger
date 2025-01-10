@@ -1,6 +1,6 @@
 const std = @import("std");
 const tree_sitter = @import("../bindings/tree_sitter.zig");
-const ast = @import("../ast_types.zig");
+const ast = @import("../ast/ast_types.zig");
 const log = @import("../utils/log.zig");
 const parser_mod = @import("mod.zig");
 

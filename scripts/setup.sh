@@ -8,23 +8,23 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}Setting up development environment...${NC}"
 
-# Create deps directory if it doesn't exist
-echo -e "${BLUE}Creating deps directory...${NC}"
-mkdir -p deps
+# Create pkg directory if it doesn't exist
+echo -e "${BLUE}Creating pkg directory...${NC}"
+mkdir -p pkg
 
 # Clone tree-sitter if it doesn't exist
-if [ ! -d "deps/tree-sitter" ]; then
+if [ ! -d "pkg/tree-sitter" ]; then
     echo -e "${BLUE}Cloning tree-sitter...${NC}"
-    git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git deps/tree-sitter
+    git clone --depth 1 --branch v0.20.8 https://github.com/tree-sitter/tree-sitter.git pkg/tree-sitter
     echo -e "${GREEN}Successfully cloned tree-sitter${NC}"
 else
     echo -e "${GREEN}tree-sitter already exists${NC}"
 fi
 
 # Clone tree-sitter-typescript if it doesn't exist
-if [ ! -d "deps/tree-sitter-typescript" ]; then
+if [ ! -d "pkg/tree-sitter-typescript" ]; then
     echo -e "${BLUE}Cloning tree-sitter-typescript...${NC}"
-    git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git deps/tree-sitter-typescript
+    git clone --depth 1 --branch v0.20.1 https://github.com/tree-sitter/tree-sitter-typescript.git pkg/tree-sitter-typescript
     echo -e "${GREEN}Successfully cloned tree-sitter-typescript${NC}"
 else
     echo -e "${GREEN}tree-sitter-typescript already exists${NC}"
@@ -32,7 +32,7 @@ fi
 
 # Verify the dependencies were installed correctly
 echo -e "${BLUE}Verifying dependencies...${NC}"
-if [ -d "deps/tree-sitter" ] && [ -d "deps/tree-sitter-typescript" ]; then
+if [ -d "pkg/tree-sitter" ] && [ -d "pkg/tree-sitter-typescript" ]; then
     echo -e "${GREEN}All dependencies are installed successfully!${NC}"
 else
     echo "Error: Some dependencies are missing. Please check the error messages above."

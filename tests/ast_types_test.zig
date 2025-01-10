@@ -1,6 +1,6 @@
 const std = @import("std");
 const testing = std.testing;
-const ast = @import("ast_types");
+const ast = @import("core/ast/ast");
 
 test "create and manipulate FlowNode" {
     const allocator = testing.allocator;

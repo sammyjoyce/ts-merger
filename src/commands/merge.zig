@@ -1,6 +1,6 @@
 const std = @import("std");
 const cli = @import("../cli.zig");
-const ast_types = @import("../ast_types.zig");
+const ast_types = @import("../ast/ast_types.zig");
 const parser_mod = @import("../parser/mod.zig");
 const typescript = @import("../parser/typescript.zig");
 const flow = @import("../flow.zig");
@@ -31,17 +31,17 @@ const MergeError = error{
 } || std.fs.File.OpenError || std.fs.File.WriteError || std.fs.File.ReadError;
 
 pub fn execute(allocator: std.mem.Allocator, config: *const cli.Config) MergeError!void {
-    std.debug.print("Command: merge\n", .{});
-    std.debug.print("Starting merge command...\n", .{});
+    const logger = Logger.scoped(.Info, "merge");
+    logger.info("Starting merge command...", .{});
 
     // Validate input
     if (config.source_paths.len == 0) {
-        std.debug.print("Error: No source files specified\n", .{});
+        Logger.scoped(.Error, "merge").err("No source files specified", .{});
         return error.NoSourceFiles;
     }
 
     if (config.target_path == null) {
-        std.debug.print("Error: No target file specified\n", .{});
+        Logger.scoped(.Error, "merge").err("No target file specified", .{});
         return error.NoTargetFile;
     }
 
@@ -51,66 +51,55 @@ pub fn execute(allocator: std.mem.Allocator, config: *const cli.Config) MergeErr
     // Validate file extensions
     for (source_files) |file| {
         if (!std.mem.endsWith(u8, file, ".ts")) {
-            std.debug.print("Error: Source file '{s}' is not a TypeScript file\n", .{file});
+            Logger.scoped(.Error, "merge").err(
+                "Source file '{s}' is not a TypeScript file",
+                .{file}
+            );
             return error.InvalidArguments;
         }
     }
     if (!std.mem.endsWith(u8, target_file, ".ts")) {
-        std.debug.print("Error: Target file '{s}' is not a TypeScript file\n", .{target_file});
+        Logger.scoped(.Error, "merge").err(
+            "Target file '{s}' is not a TypeScript file",
+            .{target_file}
+        );
         return error.InvalidArguments;
     }
 
-    std.debug.print("Target: {s}\n", .{target_file});
-    std.debug.print("Source files:\n", .{});
+    logger.info("Target: {s}", .{target_file});
+    logger.info("Source files:", .{});
     for (source_files) |file| {
-        std.debug.print("  - {s}\n", .{file});
+        logger.info("  - {s}", .{file});
     }
 
     // Initialize parser and flow
     var ts_parser = try typescript.TypeScriptParser.init(allocator);
     defer ts_parser.deinit();
 
-    var flow_instance = try flow.Flow.init(allocator);
-    defer flow_instance.deinit();
+    var project = try Project.init(allocator, &ts_parser);
+    defer project.deinit();
 
     // Process source files
     for (source_files) |file| {
-        std.debug.print("\nProcessing file: {s}\n", .{file});
-
-        // Read source file
-        const source_content = std.fs.cwd().readFileAlloc(allocator, file, 1024 * 1024 * 10) catch |err| {
-            std.debug.print("Error reading file '{s}': {}\n", .{ file, err });
-            return error.InvalidArguments;
-        };
-        defer allocator.free(source_content);
-
-        // Parse file
-        ts_parser.parse(source_content) catch |err| {
-            std.debug.print("Error parsing file '{s}': {}\n", .{ file, err });
-            return error.ParseFailed;
-        };
-
-        // Add nodes to flow
-        for (ts_parser.nodes.items) |node| {
-            flow_instance.addNode(node) catch |err| {
-                std.debug.print("Error adding node from file '{s}': {}\n", .{ file, err });
-                return error.MergeError;
-            };
-        }
+        Logger.scoped(.Info, "merge").info("Processing file: {s}", .{file});
+        try project.parseFile(file);
     }
+
+    // Get topologically ordered nodes
+    const ordered_nodes = try project.flow.getTopologicalOrder();
 
     // Create target file
     const target = std.fs.cwd().createFile(target_file, .{}) catch |err| {
-        std.debug.print("Error creating target file '{s}': {}\n", .{ target_file, err });
-        return error.InvalidArguments;
+        Logger.scoped(.Error, "merge").err(
+            "Failed to create target file '{s}': {s}",
+            .{target_file, @errorName(err)}
+        );
+        return err;  // Proper error propagation
     };
     defer target.close();
 
-    // Write merged content
-    flow_instance.write(target.writer()) catch |err| {
-        std.debug.print("Error writing to target file '{s}': {}\n", .{ target_file, err });
-        return error.MergeError;
-    };
+    // Write merged content using project API
+    try project.writeToFile(target_file);
 
-    std.debug.print("\nMerge completed successfully!\n", .{});
+    Logger.scoped(.Info, "merge").info("Merge completed successfully!", .{});
 }

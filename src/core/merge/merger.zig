@@ -1,7 +1,7 @@
 const std = @import("std");
-const Node = @import("../ast_types.zig").Node;
-const common = @import("../languages/common.zig");
-const rules = @import("rules.zig");
+const Node = @import("../ast/ast_types.zig").Node;
+const common = @import("../../parser/common.zig");
+const rules = @import("core/merge/rules.zig");
 
 pub const MergeError = error{
     OutOfMemory,

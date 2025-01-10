@@ -1,11 +1,16 @@
 const std = @import("std");
-const Node = @import("../ast_types.zig").Node;
+const Node = @import("../ast/ast_types.zig").Node;
 
-pub const ParseError = error{
-    OutOfMemory,
+pub const Error = error {
     InvalidSyntax,
     UnsupportedFeature,
-};
+    CircularDependency,
+    OutOfMemory,
+    FileNotFound,
+    ParseFailure,
+    ConflictingExports,
+    InvalidNodeStructure,
+} || std.mem.Allocator.Error;
 
 pub const Parser = struct {
     pub const ParseFn = *const fn ([]const u8) ParseError!*Node;

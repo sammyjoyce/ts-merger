@@ -1,5 +1,5 @@
 const std = @import("std");
-const ast = @import("../ast_types.zig");
+const ast = @import("../ast/ast_types.zig");
 
 pub const ParseError = error{
     OutOfMemory,

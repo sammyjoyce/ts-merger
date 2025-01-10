@@ -37,8 +37,10 @@ pub const Location = struct {
 /// Base AST node structure that represents any node in the syntax tree
 pub const Node = struct {
     kind: NodeKind,
-    value: ?[]const u8,
-    children: std.ArrayList(*Node),
+    value: []const u8,
+    location: Location,
+    dependencies: std.ArrayList(*Node),
+    references: std.ArrayList(*Node),
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !*Node {
@@ -81,6 +83,8 @@ pub const Node = struct {
         new_node.kind.kind = self.kind.kind;
         if (self.kind.source) |source| {
             new_node.kind.source = try allocator.dupe(u8, source);
+        } else {
+            new_node.kind.source = null;
         }
 
         // Clone value if present
@@ -170,6 +174,7 @@ pub const NodeKind = struct {
 };
 
 pub fn nodeKindFromString(kind_str: []const u8) !NodeKind.Kind {
+    if (kind_str.len == 0) return error.InvalidNodeKind;
     if (std.mem.eql(u8, kind_str, "program")) return .Program;
     if (std.mem.eql(u8, kind_str, "export_statement")) return .ExportDecl;
     if (std.mem.eql(u8, kind_str, "import_statement")) return .ImportDecl;
@@ -240,8 +245,14 @@ pub const CodeFlowNode = struct {
             .freed = false,
             .dependencies = std.ArrayList(*CodeFlowNode).init(allocator),
             .references = std.ArrayList(*CodeFlowNode).init(allocator),
-            // SAFETY: The 'location' will be initialized before being accessed.
-            .location = undefined,
+            // Initialize valid temporary location
+            .location = Location{
+                .file_path = try allocator.dupeZ(u8, "uninitialized"),  // Will be set later
+                .range = Range{
+                    .start = Position{ .row = 0, .column = 0 },
+                    .end = Position{ .row = 0, .column = 0 },
+                },
+            },
         };
         return node;
     }
@@ -254,12 +265,16 @@ pub const CodeFlowNode = struct {
         }
         self.dependencies.deinit();
         self.references.deinit();
+        
+        // Properly deinitialize location
         self.location.deinit(allocator);
+        
         self.freed = true;
         allocator.destroy(self);
     }
 
     pub fn addMethod(self: *CodeFlowNode, method_name: []const u8) !void {
+        const std = @import("std");
         const method_node = try self.dependencies.allocator.create(CodeFlowNode);
         const owned_name = try self.dependencies.allocator.dupeZ(u8, method_name);
 
@@ -270,8 +285,13 @@ pub const CodeFlowNode = struct {
             .freed = false,
             .dependencies = std.ArrayList(*CodeFlowNode).init(self.dependencies.allocator),
             .references = std.ArrayList(*CodeFlowNode).init(self.dependencies.allocator),
-            // SAFETY: The 'location' will be initialized before being accessed.
-            .location = undefined,
+            .location = Location{
+                .file_path = try self.dependencies.allocator.dupeZ(u8, "uninitialized"),
+                .range = Range{
+                    .start = Position{ .row = 0, .column = 0 },
+                    .end = Position{ .row = 0, .column = 0 },
+                },
+            },
         };
 
         try self.dependencies.append(method_node);
