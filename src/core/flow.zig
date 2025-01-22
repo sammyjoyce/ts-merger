@@ -12,7 +12,7 @@ pub const Flow = struct {
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !*Flow {
-        var flow = try allocator.create(Flow);
+        const flow = try allocator.create(Flow);
         flow.* = .{
             .nodes = std.ArrayList(*ast.Node).init(allocator),
             .allocator = allocator,
