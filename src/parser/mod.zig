@@ -1,6 +1,6 @@
 const std = @import("std");
 const ast = @import("../ast/ast_types.zig");
-
+const typescript = @import("typescript.zig");
 const common = @import("common.zig");
 pub const ParseError = common.Error;
 
