@@ -301,5 +301,5 @@ pub fn build(b: *std.Build) !void {
             .tree_sitter_typescript_lib = tree_sitter_typescript,
         },
     );
-    b.step("test", "Run unit tests").dependOn(test_step);
+    test_step.dependOn(&b.addRunArtifact(exe).step);
 }
