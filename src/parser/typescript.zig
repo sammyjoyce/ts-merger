@@ -71,6 +71,49 @@ pub const TypeScriptParser = struct {
         return self.parseInternal(validated_source.data);
     }
 
+    fn parseInternal(self: *Self, source: []const u8) !*ast.Node {
+        const gpa = self.allocator;
+        
+        const new_source = try self.allocator.dupe(u8, source);
+        errdefer self.allocator.free(new_source);
+
+        self.source = new_source;
+        
+        // Clear any existing nodes
+        for (self.nodes.items) |node| {
+            node.deinit();
+            self.allocator.destroy(node);
+        }
+        self.nodes.clearRetainingCapacity();
+
+        if (self.source) |old_source| {
+            self.allocator.free(old_source);
+        }
+        const tree = tree_sitter.ts_parser_parse_string(self.parser.?, null, // old_tree
+            source.ptr, @intCast(source.len)) orelse {
+            self.logger.err("Failed to parse source", .{});
+            return error.ParseFailed;
+        };
+        defer tree_sitter.ts_tree_delete(tree);
+
+        // Get root node
+        const root_node = tree_sitter.ts_tree_root_node(tree);
+        if (tree_sitter.ts_node_is_null(root_node)) {
+            return error.RootNodeNull;
+        }
+
+        // Create cursor for traversal
+        var cursor = tree_sitter.ts_tree_cursor_new(root_node);
+        defer tree_sitter.ts_tree_cursor_delete(&cursor);
+
+        // Process root node and build AST
+        const ast_root = try self.processNode(self.allocator, root_node, &cursor);
+        errdefer ast_root.deinit();
+
+        try self.nodes.append(ast_root);
+        return ast_root;
+    }
+
     fn validateSource(self: *Self, allocator: std.mem.Allocator, input: []const u8) !struct { data: []const u8, owned: bool } {
         if (input.len == 0) {
             self.logger.err("Empty source", .{});
