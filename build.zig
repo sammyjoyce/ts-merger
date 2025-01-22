@@ -221,7 +221,7 @@ pub fn build(b: *std.Build) !void {
         .file = .{ .cwd_relative = ts_lib_c },
         .flags = &.{ "-std=c99", "-fPIC" },
     });
-    tree_sitter.addIncludePath(.{ .path = tree_sitter_main_include });
+    tree_sitter.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
 
     // Build the tree-sitter-typescript library
     const tree_sitter_typescript = b.addStaticLibrary(.{
