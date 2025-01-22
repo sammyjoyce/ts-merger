@@ -101,12 +101,13 @@ pub const TypeScriptParser = struct {
         errdefer self.allocator.free(new_source);
 
         self.source = new_source;
-            // Clear any existing nodes
-            for (self.nodes.items) |node| {
-                node.deinit();
-                self.allocator.destroy(node);
-            }
-            self.nodes.clearRetainingCapacity();
+        
+        // Clear any existing nodes
+        for (self.nodes.items) |node| {
+            node.deinit();
+            self.allocator.destroy(node);
+        }
+        self.nodes.clearRetainingCapacity();
 
         if (self.source) |old_source| {
             self.allocator.free(old_source);
