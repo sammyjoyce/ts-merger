@@ -87,7 +87,7 @@ test "parse complex TypeScript file" {
     // Test generic class
     const container = findChildNodeByName(root_node.children.items, "Container") orelse {
         try testing.expect(false);
-        return;
+        return error.NodeNotFound;
     };
     try testing.expectEqual(parser_mod.NodeKind.class, container.kind.kind);
     // Dependency checks would require more sophisticated AST traversal
@@ -149,7 +149,10 @@ test "test error handling" {
     // Test parsing invalid TypeScript
     const invalid_code = "class { invalid";
     const parse_result = ts_parser.parse(invalid_code);
-    try testing.expectError(common.Error.ParseFailed, parse_result);
+    try testing.expectError(
+        common.Error.ParseFailed,
+        parse_result,
+    );
 }
 
 test "test memory management" {
