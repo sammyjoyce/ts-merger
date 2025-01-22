@@ -17,8 +17,8 @@ fn addTests(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     options: struct {
-        tree_sitter: *std.build.Module,
-        tree_sitter_typescript: *std.build.Module,
+        tree_sitter: *std.Build.Module,
+        tree_sitter_typescript: *std.Build.Module,
         tree_sitter_lib: *std.Build.Step.Compile,
         tree_sitter_typescript_lib: *std.Build.Step.Compile,
     },
