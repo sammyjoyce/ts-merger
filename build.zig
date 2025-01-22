@@ -218,7 +218,7 @@ pub fn build(b: *std.Build) !void {
     defer b.allocator.free(ts_lib_c);
 
     tree_sitter.addCSourceFile(.{
-        .file = .{ .path = ts_lib_c },
+        .file = .{ .cwd_relative = ts_lib_c },
         .flags = &.{ "-std=c99", "-fPIC" },
     });
     tree_sitter.addIncludePath(.{ .path = tree_sitter_main_include });
@@ -243,11 +243,11 @@ pub fn build(b: *std.Build) !void {
     defer b.allocator.free(ts_include_path);
 
     tree_sitter_typescript.addCSourceFile(.{
-        .file = .{ .path = ts_parser_c },
+        .file = .{ .cwd_relative = ts_parser_c },
         .flags = &.{ "-std=c99", "-fPIC" },
     });
     tree_sitter_typescript.addCSourceFile(.{
-        .file = .{ .path = ts_scanner_cc },
+        .file = .{ .cwd_relative = ts_scanner_cc },
         .flags = &.{ "-std=c++17", "-fPIC" },
     });
     tree_sitter_typescript.addIncludePath(.{ .path = ts_include_path });
