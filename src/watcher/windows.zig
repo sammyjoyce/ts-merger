@@ -1,6 +1,7 @@
 const std = @import("std");
 const windows = std.os.windows;
 const mod = @import("mod.zig");
+const Logger = @import("../utils/log.zig").Logger;
 
 const EVENTS_MAX = 32;
 const FILE_NOTIFY_BUFFER_SIZE = 4096;

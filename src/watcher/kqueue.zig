@@ -2,6 +2,7 @@ const std = @import("std");
 const posix = std.posix;
 const c = std.c;
 const mod = @import("mod.zig");
+const Logger = @import("../utils/log.zig").Logger;
 
 const EVENTS_MAX = 32;
 
@@ -10,7 +11,7 @@ pub const KqueueWatcher = struct {
         path: []const u8,
         fd: i32,
         is_dir: bool,
-        walker: ?std.fs.IterableDir.Walker,
+        walker: ?std.fs.Dir.Iterator,
     };
 
     allocator: std.mem.Allocator,

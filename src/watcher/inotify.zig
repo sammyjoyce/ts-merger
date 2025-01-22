@@ -2,6 +2,7 @@ const std = @import("std");
 const posix = std.posix;
 const c = std.c;
 const mod = @import("mod.zig");
+const Logger = @import("../utils/log.zig").Logger;
 
 const EVENTS_MAX = 32;
 
@@ -14,6 +15,10 @@ pub const InotifyWatcher = struct {
     callback: ?mod.WatchCallback,
 
     const WatchedPath = struct {
+        path: []const u8,
+        fd: i32,
+        is_dir: bool,
+        sub_dirs: std.ArrayList([]const u8),
         path: []const u8,
         wd: i32,
         is_dir: bool,
