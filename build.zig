@@ -156,14 +156,14 @@ fn addTests(
     flow_test.root_module.addImport("ast_types", ast_types_module);
     flow_test.linkLibrary(options.tree_sitter_lib);
     flow_test.linkLibrary(options.tree_sitter_typescript_lib);
-    flow_test.addObjectFile(.{ .path = "pkg/tree-sitter/src/lib.c" });
-    flow_test.addObjectFile(.{ .path = "pkg/tree-sitter-typescript/typescript/src/scanner.cc" });
-    flow_test.addObjectFile(.{ .path = "pkg/tree-sitter-typescript/typescript/src/parser.c" });
+    flow_test.addObjectFile(.{ .cwd_relative = "pkg/tree-sitter/src/lib.c" });
+    flow_test.addObjectFile(.{ .cwd_relative = "pkg/tree-sitter-typescript/typescript/src/scanner.cc" });
+    flow_test.addObjectFile(.{ .cwd_relative = "pkg/tree-sitter-typescript/typescript/src/parser.c" });
     flow_test.linkLibCpp();
     flow_test.linkLibC();
-    flow_test.addIncludePath(.{ .path = "pkg/tree-sitter/lib/include" });
-    flow_test.addIncludePath(.{ .path = "pkg/tree-sitter-typescript/typescript/src" });
-    flow_test.addLibraryPath(.{ .path = "/usr/lib" });
+    flow_test.addIncludePath(.{ .cwd_relative = "pkg/tree-sitter/lib/include" });
+    flow_test.addIncludePath(.{ .cwd_relative = "pkg/tree-sitter-typescript/typescript/src" });
+    flow_test.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
     test_step.dependOn(&b.addRunArtifact(flow_test).step);
 
     // Example: watcher_test artifact from src/watcher/mod.zig
