@@ -23,7 +23,7 @@ fn addTests(
         tree_sitter_typescript_lib: *std.Build.Step.Compile,
     },
 ) !*std.Build.Step {
-    /// This step is the global container for all tests.
+    // This step is the global container for all tests.
     const test_step = b.step("test", "Run all tests");
     
     //
