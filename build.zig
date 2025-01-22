@@ -270,8 +270,8 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = mode,
     });
-    exe.addModule("tree-sitter", tree_sitter_module);
-    exe.addModule("tree-sitter-typescript", tree_sitter_typescript_module);
+    exe.root_module.addImport("tree-sitter", tree_sitter_module);
+    exe.root_module.addImport("tree-sitter-typescript", tree_sitter_typescript_module);
     exe.addIncludePath(.{ .src_path = .{ .owner = b, .sub_path = "src" } });
     exe.linkLibC();
     exe.linkLibrary(tree_sitter);
