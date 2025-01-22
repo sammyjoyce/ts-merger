@@ -16,7 +16,7 @@ pub const Merger = struct {
     parser: *const parser.Parser, // Use generic parser interface
     rules: rules.MergeRules,
 
-    pub fn init(allocator: std.mem.Allocator, parser: *const parser_mod.Parser, merge_rules: rules.MergeRules) Merger {
+    pub fn init(allocator: std.mem.Allocator, parser_impl: *const parser.Parser, merge_rules: rules.MergeRules) Merger {
         return .{
             .allocator = allocator,
             .parser = parser,
