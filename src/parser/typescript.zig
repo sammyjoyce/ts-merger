@@ -113,8 +113,6 @@ pub const TypeScriptParser = struct {
         errdefer self.allocator.free(new_source);
 
         self.source = new_source;
-
-        // Parse source
         const tree = tree_sitter.ts_parser_parse_string(self.parser.?, null, // old_tree
             source.ptr, @intCast(source.len)) orelse {
             self.logger.err("Failed to parse source", .{});
@@ -138,6 +136,18 @@ pub const TypeScriptParser = struct {
 
         try self.nodes.append(ast_root);
         return ast_root;
+    }
+
+    fn resetState(self: *Self) void {
+        for (self.nodes.items) |node| {
+            node.deinit();
+            self.allocator.destroy(node);
+        }
+        self.nodes.clearRetainingCapacity();
+
+        if (self.source) |old_source| {
+            self.allocator.free(old_source);
+        }
     }
 
     pub fn processNode(self: *Self, allocator: std.mem.Allocator, node: tree_sitter.Node, cursor: *tree_sitter.TreeCursor) parser_mod.ParseError!*ast.Node {
