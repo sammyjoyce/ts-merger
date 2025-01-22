@@ -8,8 +8,14 @@ const common = @import("common.zig");
 pub const TypeScriptParser = struct {
     const Self = @This();
 
-    // Add common parser interface
-    pub usingnamespace common.ParserInterface(Self);
+    pub const language_metadata = common.LanguageMetadata{
+        .id = 1,
+        .name = "TypeScript",
+        .extensions = &[_][]const u8{".ts", ".tsx"},
+        .version = .{ .major = 5, .minor = 3, .patch = 0 },
+    };
+
+    pub const Interface = common.ParserInterface(Self);
 
     allocator: std.mem.Allocator,
     parser: ?*tree_sitter.Parser,
@@ -56,10 +62,40 @@ pub const TypeScriptParser = struct {
     }
 
     pub fn parse(self: *Self, source: []const u8) !*ast.Node {
-        if (source.len == 0) {
+        const gpa = self.allocator;
+        defer self.resetState();
+        
+        const validated_source = try self.validateSource(gpa, source);
+        defer if (validated_source.owned) gpa.free(validated_source.data);
+        
+        return self.parseInternal(validated_source.data);
+    }
+
+    fn validateSource(self: *Self, allocator: std.mem.Allocator, input: []const u8) !struct { data: []const u8, owned: bool } {
+        if (input.len == 0) {
             self.logger.err("Empty source", .{});
             return error.EmptySource;
         }
+        if (input.len > 1024 * 1024 * 10) return error.SourceTooLarge;
+        
+        // Detect BOM and convert to UTF-8
+        if (std.unicode.bomLength(input)) |bom_len| {
+            const clean_input = input[bom_len..];
+            if (!std.unicode.utf8ValidateSlice(clean_input)) {
+                return error.InvalidEncoding;
+            }
+            return .{ .data = clean_input, .owned = false };
+        }
+        
+        // For untrusted input, make a private copy
+        const owned = input.len > 4096; // Only copy large inputs
+        if (owned) {
+            const copy = try allocator.alloc(u8, input.len);
+            std.mem.copy(u8, copy, input);
+            return .{ .data = copy, .owned = true };
+        }
+        return .{ .data = input, .owned = false };
+    }
 
         // Clear any existing nodes
         for (self.nodes.items) |node| {

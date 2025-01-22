@@ -3,13 +3,20 @@ const Node = @import("../ast/ast_types.zig").Node;
 const ParseError = @import("mod.zig").ParseError;
 
 pub const Error = ParseError || error {
-    ParserCreationFailed,
-    LanguageSetFailed,
     EmptySource,
-    ParseFailed,
     InvalidNodeType,
-    NoRootNode
+    NoRootNode,
+    SourceTooLarge,
+    InvalidEncoding,
+    OutOfMemory
 } || std.mem.Allocator.Error;
+
+pub const LanguageMetadata = struct {
+    id: u16,
+    name: []const u8,
+    extensions: []const []const u8,
+    version: struct { major: u16, minor: u16, patch: u16 },
+};
 
 pub const ErrorDetails = struct {
     code: u16,

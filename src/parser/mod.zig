@@ -32,8 +32,11 @@ pub const Parser = struct {
     }
 
     fn parseWrapper(ctx: *anyopaque, source: []const u8) ParseError!*ast.Node {
-        const impl: *const Ptr = @ptrCast(@alignCast(ctx));
-        return impl.parse(source);
+        const Ptr = @TypeOf(ctx);
+        const impl: *Ptr = @alignCast(ctx);
+        if (@sizeOf(Ptr) == 0) @compileError("Parser implementation cannot be zero-sized");
+        if (!@hasDecl(Ptr, "parse")) @compileError("Parser implementation must have parse method");
+        return @call(.auto, impl.parse, .{source});
     }
 
     fn formatWrapper(ctx: *anyopaque, node: *ast.Node) ParseError![]const u8 {
