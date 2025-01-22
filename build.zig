@@ -276,9 +276,9 @@ pub fn build(b: *std.Build) !void {
     exe.linkLibC();
     exe.linkLibrary(tree_sitter);
     exe.linkLibrary(tree_sitter_typescript);
-    exe.addObjectFile(.{ .path = ts_lib_c });
-    exe.addObjectFile(.{ .path = ts_parser_c });
-    exe.addObjectFile(.{ .path = ts_scanner_cc });
+    exe.addObjectFile(.{ .cwd_relative = ts_lib_c });
+    exe.addObjectFile(.{ .cwd_relative = ts_parser_c });
+    exe.addObjectFile(.{ .cwd_relative = ts_scanner_cc });
     exe.linkLibCpp();
     exe.addLibraryPath(.{ .path = "/usr/lib" }); // For macOS libc++.a
 
