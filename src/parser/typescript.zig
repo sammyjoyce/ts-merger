@@ -98,6 +98,7 @@ pub const TypeScriptParser = struct {
         return .{ .data = input, .owned = false };
     }
 
+    fn parseInternal(self: *Self, source: []const u8) !*ast.Node {
         const new_source = try self.allocator.dupe(u8, source);
         errdefer self.allocator.free(new_source);
 
