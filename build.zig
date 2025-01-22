@@ -14,7 +14,7 @@ fn validatePathComponent(comptime part: []const u8) void {
 /// Add all unit/integration tests, returning the step to run them.
 fn addTests(
     b: *std.Build,
-    target: std.build.AvailableTarget,
+    target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     options: struct {
         tree_sitter: *std.build.Module,
