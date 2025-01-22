@@ -85,10 +85,11 @@ test "parse complex TypeScript file" {
     }
 
     // Test generic class
-    const container = findChildNodeByName(root_node.children.items, "Container") orelse {
+    const container = findChildNodeByName(root_node.children.items, "Container") orelse null;
+    if (container == null) {
         try testing.expect(false);
-        return error.NodeNotFound;
-    };
+        return;
+    }
     try testing.expectEqual(parser_mod.NodeKind.class, container.kind.kind);
     // Dependency checks would require more sophisticated AST traversal
 
