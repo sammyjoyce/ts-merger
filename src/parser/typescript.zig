@@ -9,8 +9,7 @@ pub const TypeScriptParser = struct {
     const Self = @This();
 
     // Add common parser interface
-    pub usingnamespace common.Parser(parse, format);
-    const Self = @This();
+    pub usingnamespace common.ParserInterface(Self);
 
     allocator: std.mem.Allocator,
     parser: ?*tree_sitter.Parser,
@@ -56,7 +55,7 @@ pub const TypeScriptParser = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn parse(self: *Self, source: []const u8) !void {
+    pub fn parse(self: *Self, source: []const u8) !*ast.Node {
         if (source.len == 0) {
             self.logger.err("Empty source", .{});
             return error.EmptySource;
@@ -101,6 +100,7 @@ pub const TypeScriptParser = struct {
         errdefer ast_root.deinit();
 
         try self.nodes.append(ast_root);
+        return ast_root;
     }
 
     pub fn processNode(self: *Self, allocator: std.mem.Allocator, node: tree_sitter.Node, cursor: *tree_sitter.TreeCursor) parser_mod.ParseError!*ast.Node {

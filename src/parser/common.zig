@@ -1,49 +1,44 @@
 const std = @import("std");
 const Node = @import("../ast/ast_types.zig").Node;
+const ParseError = @import("mod.zig").ParseError;
 
-pub const Error = parser_mod.ParseError || error {
-    InvalidSyntax,
-    UnsupportedFeature,
-    CircularDependency,
-    FileNotFound,
-    ParseFailure,
-    ConflictingExports,
-    InvalidNodeStructure,
-    LanguageVersionMismatch,
-    ParserCreationFailed
+pub const Error = ParseError || error {
+    ParserCreationFailed,
+    LanguageSetFailed,
+    EmptySource,
+    ParseFailed,
+    InvalidNodeType,
+    NoRootNode
 } || std.mem.Allocator.Error;
 
-pub fn Parser(comptime ParseFn: type, comptime FormatFn: type) type {
-    return struct {
-        parse: ParseFn,
-        format: FormatFn,
+pub const ErrorDetails = struct {
+    code: u16,
+    message: []const u8,
+    position: struct {
+        line: u32,
+        column: u32,
+    },
+};
 
-        pub fn init(parse_impl: ParseFn, format_impl: FormatFn) @This() {
+pub fn ParserInterface(comptime T: type) type {
+    return struct {
+        allocator: std.mem.Allocator,
+        
+        parse_fn: *const fn (*T, []const u8) Error!*Node,
+        format_fn: *const fn (*T, *Node) Error![]const u8,
+
+        pub const Self = @This();
+
+        pub fn init(
+            allocator: std.mem.Allocator,
+            parse_impl: anytype,
+            format_impl: anytype
+        ) Self {
             return .{
-                .parse = parse_impl,
-                .format = format_impl,
+                .allocator = allocator,
+                .parse_fn = parse_impl,
+                .format_fn = format_impl,
             };
         }
     };
 }
-    pub const ParseFn = *const fn ([]const u8) ParseError!*Node;
-    pub const FormatFn = *const fn (*Node) ParseError![]const u8;
-
-    parse_fn: ParseFn,
-    format_fn: FormatFn,
-
-    pub fn init(parse_func: ParseFn, format_func: FormatFn) Parser {
-        return .{
-            .parse_fn = parse_func,
-            .format_fn = format_func,
-        };
-    }
-
-    pub fn parse(self: *const Parser, source: []const u8) ParseError!*Node {
-        return self.parse_fn(source);
-    }
-
-    pub fn format(self: *const Parser, node: *Node) ParseError![]const u8 {
-        return self.format_fn(node);
-    }
-};
