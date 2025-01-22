@@ -257,10 +257,10 @@ pub fn build(b: *std.Build) !void {
 
     // Create modules for the final executable
     const tree_sitter_module = b.createModule(.{
-        .root_source_file = .{ .path = "src/bindings/tree_sitter.zig" },
+        .root_source_file = .{ .cwd_relative = "src/bindings/tree_sitter.zig" },
     });
     const tree_sitter_typescript_module = b.createModule(.{
-        .root_source_file = .{ .path = "src/bindings/tree_sitter_typescript.zig" },
+        .root_source_file = .{ .cwd_relative = "src/bindings/tree_sitter_typescript.zig" },
     });
 
     // Create the main executable
