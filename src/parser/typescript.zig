@@ -97,22 +97,21 @@ pub const TypeScriptParser = struct {
         return .{ .data = input, .owned = false };
     }
 
-        // Clear any existing nodes
-        {
-            for (self.nodes.items) |node| {
-            node.deinit();
-            self.allocator.destroy(node);
-        }
-        self.nodes.clearRetainingCapacity();
-
-        if (self.source) |old_source| {
-            self.allocator.free(old_source);
-        }
-
         const new_source = try self.allocator.dupe(u8, source);
         errdefer self.allocator.free(new_source);
 
         self.source = new_source;
+        {
+            // Clear any existing nodes
+            for (self.nodes.items) |node| {
+                node.deinit();
+                self.allocator.destroy(node);
+            }
+            self.nodes.clearRetainingCapacity();
+
+            if (self.source) |old_source| {
+                self.allocator.free(old_source);
+            }
         const tree = tree_sitter.ts_parser_parse_string(self.parser.?, null, // old_tree
             source.ptr, @intCast(source.len)) orelse {
             self.logger.err("Failed to parse source", .{});
