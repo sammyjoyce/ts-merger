@@ -96,19 +96,19 @@ test "parse complex TypeScript file" {
     // Test interfaces
     const base_storage = findChildNodeByName(root_node.children.items, "BaseStorage") orelse {
         try testing.expect(false);
-        return;
+        return error.NodeNotFound;
     };
     try testing.expectEqual(parser_mod.NodeKind.interface, base_storage.kind.kind);
 
     const logger = findChildNodeByName(root_node.children.items, "Logger") orelse {
         try testing.expect(false);
-        return;
+        return error.NodeNotFound;
     };
     try testing.expectEqual(parser_mod.NodeKind.interface, logger.kind.kind);
 
     const storage_with_logging = findChildNodeByName(root_node.children.items, "StorageWithLogging") orelse {
         try testing.expect(false);
-        return;
+        return error.NodeNotFound;
     };
     try testing.expectEqual(parser_mod.NodeKind.interface, storage_with_logging.kind.kind);
     // Dependency checks would require more sophisticated AST traversal
