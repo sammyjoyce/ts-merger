@@ -72,7 +72,7 @@ pub fn execute(allocator: std.mem.Allocator, config: *const cli.Config) MergeErr
     var ts_parser = try typescript.TypeScriptParser.init(allocator);
     defer ts_parser.deinit();
 
-    var project = try Project.init(allocator, &parser_mod.Parser.init(allocator, ts_parser_impl)); // Use generic parser with TypeScript implementation
+    var project = try Project.init(allocator, &parser_mod.Parser.init(allocator, ts_parser)); // Use generic parser with TypeScript implementation
     defer project.deinit();
 
     // Process source files
