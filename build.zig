@@ -13,7 +13,7 @@ fn validatePathComponent(comptime part: []const u8) void {
 
 /// Add all unit/integration tests, returning the step to run them.
 fn addTests(
-    b: *std.build.Builder,
+    b: *std.Build,
     target: std.build.AvailableTarget,
     optimize: std.builtin.OptimizeMode,
     options: struct {
