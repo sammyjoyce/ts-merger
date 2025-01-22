@@ -1,18 +1,31 @@
 const std = @import("std");
 const Node = @import("../ast/ast_types.zig").Node;
 
-pub const Error = error {
+pub const Error = parser_mod.ParseError || error {
     InvalidSyntax,
     UnsupportedFeature,
     CircularDependency,
-    OutOfMemory,
     FileNotFound,
     ParseFailure,
     ConflictingExports,
     InvalidNodeStructure,
+    LanguageVersionMismatch,
+    ParserCreationFailed
 } || std.mem.Allocator.Error;
 
-pub const Parser = struct {
+pub fn Parser(comptime ParseFn: type, comptime FormatFn: type) type {
+    return struct {
+        parse: ParseFn,
+        format: FormatFn,
+
+        pub fn init(parse_impl: ParseFn, format_impl: FormatFn) @This() {
+            return .{
+                .parse = parse_impl,
+                .format = format_impl,
+            };
+        }
+    };
+}
     pub const ParseFn = *const fn ([]const u8) ParseError!*Node;
     pub const FormatFn = *const fn (*Node) ParseError![]const u8;
 

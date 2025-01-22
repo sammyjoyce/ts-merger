@@ -3,8 +3,13 @@ const tree_sitter = @import("../bindings/tree_sitter.zig");
 const ast = @import("../ast/ast_types.zig");
 const log = @import("../utils/log.zig");
 const parser_mod = @import("mod.zig");
+const common = @import("common.zig");
 
 pub const TypeScriptParser = struct {
+    const Self = @This();
+
+    // Add common parser interface
+    pub usingnamespace common.Parser(parse, format);
     const Self = @This();
 
     allocator: std.mem.Allocator,

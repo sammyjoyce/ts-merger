@@ -1,25 +1,7 @@
 const std = @import("std");
 const ast = @import("../ast/ast_types.zig");
 
-pub const ParseError = error{
-    OutOfMemory,
-    InvalidSyntax,
-    UnsupportedFeature,
-    ParserInitFailed,
-    ParsingFailed,
-    InvalidNodeType,
-    InvalidNodeRange,
-    InvalidRootNode,
-    NullPointer,
-    LengthTooLarge,
-    EmptySource,
-    FileReadError,
-    FileWriteError,
-    AllocationError,
-    InvalidEncoding,
-    SourceBufferInitFailed,
-    TooManyChildren,
-};
+pub const ParseError = common.Error;
 
 /// Generic parser interface that can be implemented for different languages
 pub const Parser = struct {
