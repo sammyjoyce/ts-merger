@@ -39,7 +39,7 @@ pub const Flow = struct {
     pub fn getTopologicalOrder(self: *Flow) !std.ArrayList(*ast.Node) {
         var in_degree = std.AutoHashMap(*ast.Node, u32).init(self.allocator);
         defer in_degree.deinit();
-        
+
         // Initialize in-degrees based on dependencies
         for (self.nodes.items) |node| {
             try in_degree.put(node, 0);
@@ -54,7 +54,7 @@ pub const Flow = struct {
         // Kahn's algorithm implementation
         var queue = std.ArrayList(*ast.Node).init(self.allocator);
         defer queue.deinit();
-        
+
         for (self.nodes.items) |node| {
             if (in_degree.get(node).? == 0) {
                 try queue.append(node);
@@ -83,19 +83,16 @@ pub const Flow = struct {
                     break;
                 }
             }
-            
+
             if (cycle_node) |node| {
                 const cycle_path = try detectCycleDfs(self.allocator, node);
                 defer self.allocator.free(cycle_path);
-                
-                Logger.scoped(.Error, "flow").err(
-                    "Circular dependency detected: {s}",
-                    .{cycle_path}
-                );
+
+                Logger.scoped(.Error, "flow").err("Circular dependency detected: {s}", .{cycle_path});
             }
             return FlowError.CircularDependency;
         }
-        
+
         return sorted;
     }
 
@@ -131,8 +128,7 @@ pub const Flow = struct {
 
     fn writeNode(self: *Flow, writer: anytype, node: *ast.Node) !void {
         switch (node.kind.kind) {
-            .program, .export_statement, .interface_declaration, 
-            .class_declaration, .method_definition => try writer.writeAll("\n"),
+            .program, .export_statement, .interface_declaration, .class_declaration, .method_definition => try writer.writeAll("\n"),
             else => {},
         }
 
@@ -147,37 +143,35 @@ pub const Flow = struct {
         }
 
         switch (node.kind.kind) {
-            .program, .export_statement, .interface_declaration,
-            .class_declaration => try writer.writeAll("\n"),
+            .program, .export_statement, .interface_declaration, .class_declaration => try writer.writeAll("\n"),
             else => {
-                std.debug.print("Unhandled node kind: {s}\n", 
-                    .{@tagName(node.kind.kind)});
+                std.debug.print("Unhandled node kind: {s}\n", .{@tagName(node.kind.kind)});
             },
         }
     }
 };
-    fn detectCycleDfs(allocator: std.mem.Allocator, start: *ast.Node) ![]const u8 {
-        var visited = std.AutoHashMap(*ast.Node, void).init(allocator);
-        var stack = std.ArrayList(*ast.Node).init(allocator);
-        var path = std.ArrayList(u8).init(allocator);
-        
-        try stack.append(start);
-        while (stack.popOrNull()) |current| {
-            if (visited.contains(current)) {
-                if (current == start) {
-                    // Build cycle path string
-                    for (stack.items) |node| {
-                        try path.writer().print("{s}->", .{node.name});
-                    }
-                    try path.writer().print("{s}", .{start.name});
-                    return path.toOwnedSlice();
+fn detectCycleDfs(allocator: std.mem.Allocator, start: *ast.Node) ![]const u8 {
+    var visited = std.AutoHashMap(*ast.Node, void).init(allocator);
+    var stack = std.ArrayList(*ast.Node).init(allocator);
+    var path = std.ArrayList(u8).init(allocator);
+
+    try stack.append(start);
+    while (stack.popOrNull()) |current| {
+        if (visited.contains(current)) {
+            if (current == start) {
+                // Build cycle path string
+                for (stack.items) |node| {
+                    try path.writer().print("{s}->", .{node.name});
                 }
-                continue;
+                try path.writer().print("{s}", .{start.name});
+                return path.toOwnedSlice();
             }
-            try visited.put(current, {});
-            for (current.dependencies.items) |dep| {
-                try stack.append(dep);
-            }
+            continue;
         }
-        return error.NoCycleFound;
+        try visited.put(current, {});
+        for (current.dependencies.items) |dep| {
+            try stack.append(dep);
+        }
     }
+    return error.NoCycleFound;
+}

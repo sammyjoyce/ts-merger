@@ -5,7 +5,7 @@ const Logger = @import("utils/log.zig").Logger;
 pub fn main() !void {
     // NOTE: Keep this main.zig minimal. We only parse CLI args and dispatch commands here.
     // We don't embed domain logic or watchers directly in main.
-    
+
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
@@ -47,8 +47,6 @@ fn mergeCommand(allocator: std.mem.Allocator, args: []const []const u8) !void {
     const target_file = args[0];
     const source_files = args[1..];
 
-
-
     if (!std.fs.path.isAbsolute(target_file)) {
         Logger.scoped(.Error, "merge").err("Target path must be absolute: {s}", .{target_file});
         return error.InvalidPath;
@@ -65,7 +63,7 @@ fn mergeCommand(allocator: std.mem.Allocator, args: []const []const u8) !void {
     defer project_instance.deinit();
 
     const logger = Logger.scoped(.Info, "merge");
-    
+
     logger.info("Processing source files...", .{});
     for (source_files) |file| {
         logger.info("Processing {s}", .{file});

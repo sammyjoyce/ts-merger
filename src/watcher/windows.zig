@@ -117,7 +117,7 @@ pub const WindowsWatcher = struct {
             0,
             null,
         );
-        
+
         if (self.thread) |thread| {
             thread.join();
             self.thread = null;
@@ -203,10 +203,7 @@ pub const WindowsWatcher = struct {
 
                     if (self.callback) |cb| {
                         cb(watch_event) catch |err| {
-                            Logger.scoped(.Error, "watcher").err(
-                                "Callback failed: {s}",
-                                .{@errorName(err)}
-                            );
+                            Logger.scoped(.Error, "watcher").err("Callback failed: {s}", .{@errorName(err)});
                         };
                     }
 

@@ -74,13 +74,10 @@ pub const InotifyWatcher = struct {
 
         var dir = if (is_dir)
             std.fs.openDirAbsolute(path, .{ .access_sub_paths = true }) catch |err| {
-                Logger.scoped(.Warning, "watcher").err(
-                    "Failed to open directory {s}: {s}",
-                    .{ path, @errorName(err) }
-                );
+                Logger.scoped(.Warning, "watcher").err("Failed to open directory {s}: {s}", .{ path, @errorName(err) });
                 return err;
             }
-        else 
+        else
             null;
         defer if (dir) |d| d.close();
         var watched = try self.allocator.create(WatchedPath);
@@ -97,7 +94,7 @@ pub const InotifyWatcher = struct {
             var it = d.iterate();
             while (try it.next()) |entry| {
                 if (entry.kind == .directory) {
-                    const full_path = try std.fs.path.join(self.allocator, &.{path, entry.name});
+                    const full_path = try std.fs.path.join(self.allocator, &.{ path, entry.name });
                     try watched.sub_dirs.append(full_path);
                 }
             }
@@ -168,14 +165,8 @@ pub const InotifyWatcher = struct {
 
                         const watch_event = mod.WatchEvent{
                             .path = if (name.len > 0)
-                                std.fs.path.join(self.allocator, &.{
-                                    entry.value_ptr.*.path, 
-                                    name
-                                }) catch |err| {
-                                    Logger.scoped(.Error, "watcher").err(
-                                        "Path join failed: {s}",
-                                        .{@errorName(err)}
-                                    );
+                                std.fs.path.join(self.allocator, &.{ entry.value_ptr.*.path, name }) catch |err| {
+                                    Logger.scoped(.Error, "watcher").err("Path join failed: {s}", .{@errorName(err)});
                                     continue;
                                 }
                             else

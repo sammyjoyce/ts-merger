@@ -122,7 +122,6 @@ const WatchContext = struct {
             };
         }
 
-
         // Merge flows if target is specified
         if (self.config.target_path) |target| {
             self.flow_graph.mergeFlows(target) catch |err| {

@@ -247,7 +247,7 @@ pub const CodeFlowNode = struct {
             .references = std.ArrayList(*CodeFlowNode).init(allocator),
             // Initialize valid temporary location
             .location = Location{
-                .file_path = try allocator.dupeZ(u8, "uninitialized"),  // Will be set later
+                .file_path = try allocator.dupeZ(u8, "uninitialized"), // Will be set later
                 .range = Range{
                     .start = Position{ .row = 0, .column = 0 },
                     .end = Position{ .row = 0, .column = 0 },
@@ -265,10 +265,10 @@ pub const CodeFlowNode = struct {
         }
         self.dependencies.deinit();
         self.references.deinit();
-        
+
         // Properly deinitialize location
         self.location.deinit(allocator);
-        
+
         self.freed = true;
         allocator.destroy(self);
     }

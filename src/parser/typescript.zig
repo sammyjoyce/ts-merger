@@ -11,7 +11,7 @@ pub const TypeScriptParser = struct {
     pub const language_metadata = common.LanguageMetadata{
         .id = 1,
         .name = "TypeScript",
-        .extensions = &[_][]const u8{".ts", ".tsx"},
+        .extensions = &[_][]const u8{ ".ts", ".tsx" },
         .version = .{ .major = 5, .minor = 3, .patch = 0 },
     };
 
@@ -64,13 +64,12 @@ pub const TypeScriptParser = struct {
     pub fn parse(self: *Self, source: []const u8) !*ast.Node {
         const gpa = self.allocator;
         defer self.resetState();
-        
+
         const validated_source = try self.validateSource(gpa, source);
         defer if (validated_source.owned) gpa.free(validated_source.data);
-        
+
         return self.parseInternal(validated_source.data);
     }
-
 
     fn validateSource(self: *Self, allocator: std.mem.Allocator, input: []const u8) !struct { data: []const u8, owned: bool } {
         if (input.len == 0) {
@@ -78,7 +77,7 @@ pub const TypeScriptParser = struct {
             return error.EmptySource;
         }
         if (input.len > 1024 * 1024 * 10) return error.SourceTooLarge;
-        
+
         // Detect BOM and convert to UTF-8
         if (std.unicode.bomLength(input)) |bom_len| {
             const clean_input = input[bom_len..];
@@ -87,7 +86,7 @@ pub const TypeScriptParser = struct {
             }
             return .{ .data = clean_input, .owned = false };
         }
-        
+
         // For untrusted input, make a private copy
         const owned = input.len > 4096; // Only copy large inputs
         if (owned) {
@@ -103,7 +102,7 @@ pub const TypeScriptParser = struct {
         errdefer self.allocator.free(new_source);
 
         self.source = new_source;
-        
+
         // Clear any existing nodes
         for (self.nodes.items) |node| {
             node.deinit();

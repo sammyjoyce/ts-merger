@@ -132,14 +132,14 @@ pub const KqueueWatcher = struct {
             .is_dir = true,
             .walker = if (recursive) try std.fs.IterableDir.Walker.init(self.allocator, dir) else null,
         };
-        
+
         try self.addKqueueEvent(dir.dir.fd, c.NOTE_WRITE | c.NOTE_DELETE);
         try self.watches.put(wd_entry.path, wd_entry);
         try self.dir_fds.put(dir.dir.fd, {});
-        
+
         if (recursive) {
             while (try wd_entry.walker.?.next()) |entry| {
-                const full_path = try std.fs.path.join(self.allocator, &.{path, entry.name});
+                const full_path = try std.fs.path.join(self.allocator, &.{ path, entry.name });
                 if (entry.kind == .directory) {
                     try self.watchDirectory(full_path, true);
                 } else if (std.mem.endsWith(u8, entry.name, ".ts")) {

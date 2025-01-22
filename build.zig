@@ -25,13 +25,13 @@ fn addTests(
 ) !*std.Build.Step {
     // This step is the global container for all tests.
     const test_step = b.step("test", "Run all tests");
-    
+
     //
     // Example: some modules for the tests
     //
     const ast_types_module = b.createModule(.{
         .root_source_file = .{ .cwd_relative = "src/core/ast/ast_types.zig" },
-        .imports = &.{ .{ .name = "tree_sitter", .module = options.tree_sitter } },
+        .imports = &.{.{ .name = "tree_sitter", .module = options.tree_sitter }},
     });
 
     const parser_module = b.createModule(.{
@@ -187,7 +187,7 @@ pub fn build(b: *std.build.Builder) !void {
         validatePathComponent("tree-sitter");
         validatePathComponent("tree-sitter-typescript");
     }
-    
+
     // Standard build options
     const target = b.standardTargetOptions(.{});
     const mode = b.standardOptimizeOption(.{});
@@ -200,9 +200,7 @@ pub fn build(b: *std.build.Builder) !void {
     const tree_sitter_path = "pkg/tree-sitter";
     const tree_sitter_ts_path = "pkg/tree-sitter-typescript";
 
-    const tree_sitter_main_include = try std.fs.path.join(b.allocator, &.{
-        tree_sitter_path, "lib", "include"
-    });
+    const tree_sitter_main_include = try std.fs.path.join(b.allocator, &.{ tree_sitter_path, "lib", "include" });
     defer b.allocator.free(tree_sitter_main_include);
 
     // Build the base tree-sitter library
@@ -213,9 +211,7 @@ pub fn build(b: *std.build.Builder) !void {
     });
 
     // Possibly clone the tree-sitter repo if absent
-    const git_clone_ts = b.addSystemCommand(&.{
-        "git", "clone", "--depth=1", "https://github.com/tree-sitter/tree-sitter.git", tree_sitter_path
-    });
+    const git_clone_ts = b.addSystemCommand(&.{ "git", "clone", "--depth=1", "https://github.com/tree-sitter/tree-sitter.git", tree_sitter_path });
     tree_sitter.step.dependOn(&git_clone_ts.step);
 
     const ts_lib_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_path, "src", "lib.c" });
@@ -234,9 +230,7 @@ pub fn build(b: *std.build.Builder) !void {
         .optimize = mode,
     });
 
-    const git_clone_ts_typescript = b.addSystemCommand(&.{
-        "git", "clone", "--depth=1", "https://github.com/tree-sitter/tree-sitter-typescript.git", tree_sitter_ts_path
-    });
+    const git_clone_ts_typescript = b.addSystemCommand(&.{ "git", "clone", "--depth=1", "https://github.com/tree-sitter/tree-sitter-typescript.git", tree_sitter_ts_path });
     tree_sitter_typescript.step.dependOn(&git_clone_ts_typescript.step);
 
     const ts_parser_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "parser.c" });
@@ -286,7 +280,7 @@ pub fn build(b: *std.build.Builder) !void {
     exe.addObjectFile(.{ .path = ts_parser_c });
     exe.addObjectFile(.{ .path = ts_scanner_cc });
     exe.linkLibCpp();
-    exe.addLibraryPath(.{ .path = "/usr/lib" });  // For macOS libc++.a
+    exe.addLibraryPath(.{ .path = "/usr/lib" }); // For macOS libc++.a
 
     const run_cmd = b.addRunArtifact(exe);
     if (b.args) |args| {
