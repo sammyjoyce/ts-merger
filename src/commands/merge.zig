@@ -51,18 +51,12 @@ pub fn execute(allocator: std.mem.Allocator, config: *const cli.Config) MergeErr
     // Validate file extensions
     for (source_files) |file| {
         if (!std.mem.endsWith(u8, file, ".ts")) {
-            Logger.scoped(.Error, "merge").err(
-                "Source file '{s}' is not a TypeScript file",
-                .{file}
-            );
+            Logger.scoped(.Error, "merge").err("Source file '{s}' is not a TypeScript file", .{file});
             return error.InvalidArguments;
         }
     }
     if (!std.mem.endsWith(u8, target_file, ".ts")) {
-        Logger.scoped(.Error, "merge").err(
-            "Target file '{s}' is not a TypeScript file",
-            .{target_file}
-        );
+        Logger.scoped(.Error, "merge").err("Target file '{s}' is not a TypeScript file", .{target_file});
         return error.InvalidArguments;
     }
 
@@ -90,11 +84,8 @@ pub fn execute(allocator: std.mem.Allocator, config: *const cli.Config) MergeErr
 
     // Create target file
     const target = std.fs.cwd().createFile(target_file, .{}) catch |err| {
-        Logger.scoped(.Error, "merge").err(
-            "Failed to create target file '{s}': {s}",
-            .{target_file, @errorName(err)}
-        );
-        return err;  // Proper error propagation
+        Logger.scoped(.Error, "merge").err("Failed to create target file '{s}': {s}", .{ target_file, @errorName(err) });
+        return err; // Proper error propagation
     };
     defer target.close();
 
