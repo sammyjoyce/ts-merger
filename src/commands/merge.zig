@@ -81,9 +81,6 @@ pub fn execute(allocator: std.mem.Allocator, config: *const cli.Config) MergeErr
         try project.parseFile(file);
     }
 
-    // Get topologically ordered nodes
-    const ordered_nodes = try project.flow.getTopologicalOrder();
-
     // Create target file
     const target = std.fs.cwd().createFile(target_file, .{}) catch |err| {
         Logger.scoped(.Error, "merge").err("Failed to create target file '{s}': {s}", .{ target_file, @errorName(err) });
