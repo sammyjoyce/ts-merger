@@ -2,6 +2,7 @@ const std = @import("std");
 const Node = @import("../ast/ast_types.zig").Node;
 const common = @import("../../parser/common.zig");
 const rules = @import("core/merge/rules.zig");
+const parser = @import("../parser/mod.zig");
 
 pub const MergeError = error{
     OutOfMemory,
@@ -12,7 +13,7 @@ pub const MergeError = error{
 
 pub const Merger = struct {
     allocator: std.mem.Allocator,
-    parser: *const parser_mod.Parser, // Use generic parser interface
+    parser: *const parser.Parser, // Use generic parser interface
     rules: rules.MergeRules,
 
     pub fn init(allocator: std.mem.Allocator, parser: *const parser_mod.Parser, merge_rules: rules.MergeRules) Merger {
