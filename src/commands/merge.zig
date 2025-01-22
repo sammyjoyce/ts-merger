@@ -4,6 +4,7 @@ const ast_types = @import("../ast/ast_types.zig");
 const parser_mod = @import("../parser/mod.zig");
 const typescript = @import("../parser/typescript.zig");
 const flow = @import("../flow.zig");
+const Project = @import("../project.zig").Project;
 const Logger = @import("../utils/log.zig").Logger;
 
 const MergeError = error{
