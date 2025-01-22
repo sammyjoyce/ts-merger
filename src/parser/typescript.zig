@@ -101,7 +101,6 @@ pub const TypeScriptParser = struct {
         errdefer self.allocator.free(new_source);
 
         self.source = new_source;
-        {
             // Clear any existing nodes
             for (self.nodes.items) |node| {
                 node.deinit();
@@ -109,9 +108,9 @@ pub const TypeScriptParser = struct {
             }
             self.nodes.clearRetainingCapacity();
 
-            if (self.source) |old_source| {
-                self.allocator.free(old_source);
-            }
+        if (self.source) |old_source| {
+            self.allocator.free(old_source);
+        }
         const tree = tree_sitter.ts_parser_parse_string(self.parser.?, null, // old_tree
             source.ptr, @intCast(source.len)) orelse {
             self.logger.err("Failed to parse source", .{});
