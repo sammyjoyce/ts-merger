@@ -49,7 +49,7 @@ pub const TypeScriptParser = struct {
         if (self.source) |source| {
             self.allocator.free(source);
         }
-        for (self.nodes.items) |node: *ast.Node| {
+        for (self.nodes.items) |node| {
             node.deinit();
             self.allocator.destroy(node);
         }
