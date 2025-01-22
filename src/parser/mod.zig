@@ -40,12 +40,12 @@ pub const Parser = struct {
     }
 
     fn formatWrapper(ctx: *anyopaque, node: *ast.Node) ParseError![]const u8 {
-        const impl: *const @TypeOf(impl) = @ptrCast(@alignCast(ctx));
+        const impl: *const typescript.TypeScriptParser = @ptrCast(@alignCast(ctx));
         return impl.format(node);
     }
 
     fn deinitWrapper(ctx: *anyopaque) void {
-        const impl: *const @TypeOf(impl) = @ptrCast(@alignCast(ctx));
+        const impl: *const anyopaque = @ptrCast(@alignCast(ctx));
         impl.deinit();
     }
 };
