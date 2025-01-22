@@ -142,7 +142,7 @@ fn addTests(
     parser_test.linkLibrary(options.tree_sitter_typescript_lib);
     parser_test.linkLibCpp();
     parser_test.linkLibC();
-    parser_test.addLibraryPath(.{ .path = "/usr/lib" });
+    parser_test.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
     test_step.dependOn(&b.addRunArtifact(parser_test).step);
 
     // Example: flow_test artifact from src/core/flow.zig
