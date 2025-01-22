@@ -280,7 +280,7 @@ pub fn build(b: *std.Build) !void {
     exe.addObjectFile(.{ .cwd_relative = ts_parser_c });
     exe.addObjectFile(.{ .cwd_relative = ts_scanner_cc });
     exe.linkLibCpp();
-    exe.addLibraryPath(.{ .path = "/usr/lib" }); // For macOS libc++.a
+    exe.addLibraryPath(.{ .absolute = "/usr/lib" }); // For macOS libc++.a
 
     const run_cmd = b.addRunArtifact(exe);
     if (b.args) |args| {
