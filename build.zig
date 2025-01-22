@@ -180,7 +180,7 @@ fn addTests(
 }
 
 /// Main build function (Zig 0.14.0 style)
-pub fn build(b: *std.build.Builder) !void {
+pub fn build(b: *std.Build) !void {
     // Validate path components at compile-time
     comptime {
         validatePathComponent("pkg");
