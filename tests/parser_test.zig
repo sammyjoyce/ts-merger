@@ -73,7 +73,6 @@ test "parse complex TypeScript file" {
     defer root_node.deinit();
     defer allocator.destroy(root_node);
 
-
     // Helper function to find a node by name within children
     fn findChildNodeByName(nodes: []const *parser_mod.Node, name: []const u8) ?*parser_mod.Node {
         for (nodes) |node| {
@@ -86,32 +85,27 @@ test "parse complex TypeScript file" {
 
     // Test generic class
     const container = findChildNodeByName(root_node.children.items, "Container") orelse null;
-    if (container == null) {
-        try testing.expect(false);
-        return;
-    }
+    try testing.expect(container != null);
     try testing.expectEqual(parser_mod.NodeKind.class, container.kind.kind);
-    // Dependency checks would require more sophisticated AST traversal
 
     // Test interfaces
     const base_storage = findChildNodeByName(root_node.children.items, "BaseStorage") orelse {
         try testing.expect(false);
-        return error.NodeNotFound;
+        return;
     };
     try testing.expectEqual(parser_mod.NodeKind.interface, base_storage.kind.kind);
 
     const logger = findChildNodeByName(root_node.children.items, "Logger") orelse {
         try testing.expect(false);
-        return error.NodeNotFound;
+        return;
     };
     try testing.expectEqual(parser_mod.NodeKind.interface, logger.kind.kind);
 
     const storage_with_logging = findChildNodeByName(root_node.children.items, "StorageWithLogging") orelse {
         try testing.expect(false);
-        return error.NodeNotFound;
+        return;
     };
     try testing.expectEqual(parser_mod.NodeKind.interface, storage_with_logging.kind.kind);
-    // Dependency checks would require more sophisticated AST traversal
 
     // Test abstract class
     const base_service = findChildNodeByName(root_node.children.items, "BaseService") orelse {
@@ -119,7 +113,6 @@ test "parse complex TypeScript file" {
         return;
     };
     try testing.expectEqual(parser_mod.NodeKind.class, base_service.kind.kind);
-    // Dependency checks would require more sophisticated AST traversal
 
     // Test namespace
     const storage = findChildNodeByName(root_node.children.items, "Storage") orelse {
@@ -145,15 +138,12 @@ test "test error handling" {
 
     // Test parsing non-existent file
     const non_existent_file_result = std.fs.cwd().openFile("non_existent.ts", .{});
-    try testing.expectError(error.FileNotFound, non_existent_file_result);
+    try testing.expectError(std.fs.File.Error.FileNotFound, non_existent_file_result);
 
     // Test parsing invalid TypeScript
     const invalid_code = "class { invalid";
     const parse_result = ts_parser.parse(invalid_code);
-    try testing.expectError(
-        common.Error.ParseFailed,
-        parse_result,
-    );
+    try testing.expectError(common.Error.ParseFailed, parse_result);
 }
 
 test "test memory management" {
@@ -177,6 +167,4 @@ test "test memory management" {
     var root_node3 = try ts_parser.parse(complex_source);
     defer root_node3.deinit();
     defer allocator.destroy(root_node3);
-
-    // Memory management is handled by deinit and allocator, no explicit node clearing needed in Parser itself anymore.
 }
