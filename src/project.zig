@@ -1,5 +1,5 @@
 const std = @import("std");
-const ast_types = @import("core/ast/ast.zig");
+const ast_types = @import("core/ast/ast_types.zig");
 const parser_mod = @import("parser/mod.zig");
 const typescript = @import("parser/typescript.zig");
 const flow = @import("core/flow.zig");
@@ -8,7 +8,7 @@ const Logger = @import("utils/log.zig").Logger;
 pub const Project = struct {
     allocator: std.mem.Allocator,
     flow: *flow.Flow,
-    parser: *parser_mod.Parser,
+    parser: *parser_mod.Parser, // Use generic parser interface
     owned_nodes: std.ArrayList(*ast_types.Node),
 
     pub fn init(allocator: std.mem.Allocator, parser: *parser_mod.Parser) !Project {
@@ -60,19 +60,27 @@ pub const Project = struct {
             return error.FileReadError;
         }
 
-        // Clear previous nodes before parsing new ones
-        self.parser.nodes.clearRetainingCapacity();
-        try self.parser.parse(source);
-
-        // Transfer ownership directly from parser
-        try self.owned_nodes.ensureTotalCapacity(self.parser.nodes.items.len);
-        for (self.parser.nodes.items) |node| {
-            node.allocator = self.allocator;  // Update allocator ownership
-            try self.flow.addNode(node);
-            self.owned_nodes.appendAssumeCapacity(node);
+        // Parse source using the generic parser interface
+        const root_node = self.parser.parse(source) catch |err| {
+            Logger.scoped(.Error, "project").err(
+                "Parsing failed for file '{s}': {s}",
+                .{ file_path, @errorName(err) }
+            );
+            return error.ParsingFailed; // Or a more specific error if needed
+        };
+        if (root_node == null) {
+            Logger.scoped(.Error, "project").err(
+                "Parsing returned null root node for file '{s}'",
+                .{file_path}
+            );
+            return error.NoRootNode; // Or a more specific error
         }
-        self.parser.nodes.clearRetainingCapacity();  // Clear parser's references
+
+        // Add root node and its children to flow graph
+        try self.flow.addNode(root_node);
+        try self.owned_nodes.append(root_node);
     }
+
 
     pub fn writeToFile(self: *Project, file_path: []const u8) !void {
         try self.flow.writeToFile(file_path);

@@ -12,10 +12,10 @@ pub const MergeError = error{
 
 pub const Merger = struct {
     allocator: std.mem.Allocator,
-    parser: *const common.Parser,
+    parser: *const parser_mod.Parser, // Use generic parser interface
     rules: rules.MergeRules,
 
-    pub fn init(allocator: std.mem.Allocator, parser: *const common.Parser, merge_rules: rules.MergeRules) Merger {
+    pub fn init(allocator: std.mem.Allocator, parser: *const parser_mod.Parser, merge_rules: rules.MergeRules) Merger {
         return .{
             .allocator = allocator,
             .parser = parser,
@@ -32,7 +32,7 @@ pub const Merger = struct {
         defer nodes.deinit();
 
         for (sources) |source| {
-            const node = try self.parser.parse(source);
+            const node = try self.parser.parse(source); // Use generic parser interface
             try nodes.append(node);
         }
 

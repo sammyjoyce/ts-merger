@@ -1,37 +1,41 @@
 const std = @import("std");
 const testing = std.testing;
-const parser = @import("parser");
+const parser_mod = @import("parser/mod.zig");
+const typescript = @import("parser/typescript.zig");
 const flow = @import("core/flow");
 
 test "merge TypeScript files" {
     const allocator = testing.allocator;
-    var ts_parser = try parser.Parser.init(allocator);
+    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    defer ts_parser_impl.deinit();
+    var ts_parser = parser_mod.Parser.init(allocator, ts_parser_impl);
     defer ts_parser.deinit();
 
     var flow_graph = flow.FlowGraph.init(allocator);
     defer flow_graph.deinit();
 
     // Parse both files
-    try ts_parser.parseFile("tests/fixtures/simple.ts");
-    try ts_parser.parseFile("tests/fixtures/other.ts");
+    const simple_source = try std.testing.readFile("tests/fixtures/simple.ts");
+    const other_source = try std.testing.readFile("tests/fixtures/other.ts");
+    const simple_root = try ts_parser.parse(simple_source);
+    const other_root = try ts_parser.parse(other_source);
 
     // Add nodes to flow graph
-    for (ts_parser.nodes.items) |node| {
-        try flow_graph.addNode(node);
-    }
+    try flow_graph.addNode(simple_root);
+    try flow_graph.addNode(other_root);
 
     // Test that we can find nodes
     const something = flow_graph.findNodeByName("Something") orelse {
         try testing.expect(false);
         return;
     };
-    try testing.expectEqual(parser.NodeKind.class, something.kind);
+    try testing.expectEqual(parser_mod.NodeKind.class, something.kind);
 
     const my_class = flow_graph.findNodeByName("MyClass") orelse {
         try testing.expect(false);
         return;
     };
-    try testing.expectEqual(parser.NodeKind.class, my_class.kind);
+    try testing.expectEqual(parser_mod.NodeKind.class, my_class.kind);
 
     // Test flow traversal
     var instance_flow = try flow_graph.getFlowForNode(something);
@@ -53,19 +57,20 @@ test "merge TypeScript files" {
 
 test "complex dependency flow" {
     const allocator = testing.allocator;
-    var ts_parser = try parser.Parser.init(allocator);
+    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    defer ts_parser_impl.deinit();
+    var ts_parser = parser_mod.Parser.init(allocator, ts_parser_impl);
     defer ts_parser.deinit();
 
     var flow_graph = flow.FlowGraph.init(allocator);
     defer flow_graph.deinit();
 
     // Parse complex TypeScript file
-    try ts_parser.parseFile("tests/fixtures/complex.ts");
+    const complex_source = try std.testing.readFile("tests/fixtures/complex.ts");
+    const complex_root = try ts_parser.parse(complex_source);
 
     // Add nodes to flow graph
-    for (ts_parser.nodes.items) |node| {
-        try flow_graph.addNode(node);
-    }
+    try flow_graph.addNode(complex_root);
 
     // Test interface inheritance flow
     const storage_with_logging = flow_graph.findNodeByName("StorageWithLogging") orelse {
@@ -157,16 +162,16 @@ test "cyclic dependency detection" {
     try testing.expect(has_cycle);
 }
 
-fn createFlowNode(allocator: std.mem.Allocator, name: []const u8, kind: parser.NodeKind) !*parser.FlowNode {
-    const node = try allocator.create(parser.FlowNode);
+fn createFlowNode(allocator: std.mem.Allocator, name: []const u8, kind: parser_mod.NodeKind) !*parser_mod.FlowNode {
+    const node = try allocator.create(parser_mod.FlowNode);
     node.* = .{
         .name = try allocator.dupeZ(u8, name),
         .kind = kind,
         .source = null,
         .file_path = try allocator.dupeZ(u8, "test.ts"),
         .freed = false,
-        .dependencies = std.ArrayList(*parser.FlowNode).init(allocator),
-        .references = std.ArrayList(*parser.FlowNode).init(allocator),
+        .dependencies = std.ArrayList(*parser_mod.FlowNode).init(allocator),
+        .references = std.ArrayList(*parser_mod.FlowNode).init(allocator),
         .location = .{
             .file = try allocator.dupeZ(u8, "test.ts"),
             .start = .{ .line = 0, .column = 0 },

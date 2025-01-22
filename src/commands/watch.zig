@@ -1,11 +1,13 @@
 const std = @import("std");
-const cli = @import("commands/cli");
+const cli = @import("../commands/cli");
 const watcher = @import("watcher");
-const parser = @import("parser");
+const parser_mod = @import("../parser/mod.zig");
+const typescript = @import("../parser/typescript.zig");
 const flow = @import("core/flow");
+const Logger = @import("../utils/log.zig").Logger;
 
 const WatchContext = struct {
-    ts_parser: *parser.Parser,
+    parser: *parser_mod.Parser, // Use generic parser interface
     flow_graph: *flow.FlowGraph,
     config: *const cli.Config,
     verbose: bool,
@@ -16,11 +18,12 @@ const WatchContext = struct {
         var ctx = try allocator.create(WatchContext);
         errdefer allocator.destroy(ctx);
 
-        ctx.ts_parser = try parser.Parser.init(allocator);
-        errdefer ctx.ts_parser.deinit();
+        const ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+        errdefer ts_parser_impl.deinit();
+        ctx.parser = parser_mod.Parser.init(allocator, ts_parser_impl); // Initialize generic parser with TypeScript implementation
+        errdefer ctx.parser.deinit();
 
-        ctx.flow_graph = try allocator.create(flow.FlowGraph);
-        ctx.flow_graph.* = flow.FlowGraph.init(allocator);
+        ctx.flow_graph = try flow.FlowGraph.init(allocator);
         ctx.config = config;
         ctx.verbose = config.verbose;
         ctx.source_files = std.ArrayList([]const u8).init(allocator);
@@ -39,7 +42,7 @@ const WatchContext = struct {
             allocator.free(path);
         }
         self.source_files.deinit();
-        self.ts_parser.deinit();
+        self.parser.deinit(); // Deinit generic parser, which will deinit the impl
         self.flow_graph.deinit();
         allocator.destroy(self);
     }
@@ -77,29 +80,48 @@ const WatchContext = struct {
         // Skip if file was deleted
         if (event.kind == .delete) return;
 
-        // Create a new parser instance
-        self.ts_parser.deinit();
-        self.ts_parser = parser.Parser.init(self.allocator) catch |err| {
-            std.debug.print("Error creating parser: {s}\n", .{@errorName(err)});
+        // Re-parse all files on any change
+        // Create a new TypeScript parser instance
+        const ts_parser_impl = typescript.TypeScriptParser.init(self.allocator) catch |err| {
+            std.debug.print("Error creating TypeScript parser: {s}\n", .{@errorName(err)});
             return;
         };
-
-        // Parse all TypeScript files
-        for (self.source_files.items) |path| {
-            self.ts_parser.parseFile(path) catch |err| {
-                std.debug.print("Error parsing file '{s}': {s}\n", .{ path, @errorName(err) });
-                return;
-            };
-        }
+        defer ts_parser_impl.deinit();
+        self.parser.deinit(); // Deinit old parser
+        self.parser = parser_mod.Parser.init(self.allocator, ts_parser_impl); // Initialize generic parser with new TypeScript implementation
 
         // Clear and rebuild flow graph
         self.flow_graph.clear();
-        for (self.ts_parser.nodes.items) |node| {
-            self.flow_graph.addNode(node) catch |err| {
-                std.debug.print("Error adding node: {s}\n", .{@errorName(err)});
-                return;
+
+        // Parse and add nodes for each source file
+        for (self.source_files.items) |path| {
+            const file = std.fs.cwd().openFile(path, .{}) catch |err| {
+                std.debug.print("Error opening file '{s}': {s}\n", .{ path, @errorName(err) });
+                continue; // Skip to next file
+            };
+            defer file.close();
+            const source = file.readAllAlloc(self.allocator, 1024 * 1024 * 10) catch |err| { // 10MB limit
+                std.debug.print("Error reading file '{s}': {s}\n", .{ path, @errorName(err) });
+                continue; // Skip to next file
+            };
+            defer self.allocator.free(source);
+
+            const root_node = self.parser.parse(source) catch |err| {
+                std.debug.print("Error parsing file '{s}': {s}\n", .{ path, @errorName(err) });
+                continue; // Skip to next file
+            };
+            if (root_node == null) {
+                std.debug.print("Error: Parsing file '{s}' returned null root node.\n", .{path});
+                continue; // Skip to next file
+            }
+            self.flow_graph.addNode(root_node) catch |err| {
+                std.debug.print("Error adding node to flow graph: {s}\n", .{@errorName(err)});
+                root_node.deinit(); // Clean up node on error
+                self.allocator.destroy(root_node);
+                continue; // Skip to next file
             };
         }
+
 
         // Merge flows if target is specified
         if (self.config.target_path) |target| {
