@@ -250,8 +250,8 @@ pub fn build(b: *std.Build) !void {
         .file = .{ .cwd_relative = ts_scanner_cc },
         .flags = &.{ "-std=c++17", "-fPIC" },
     });
-    tree_sitter_typescript.addIncludePath(.{ .path = ts_include_path });
-    tree_sitter_typescript.addIncludePath(.{ .path = tree_sitter_main_include });
+    tree_sitter_typescript.addIncludePath(.{ .cwd_relative = ts_include_path });
+    tree_sitter_typescript.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
     tree_sitter_typescript.linkLibrary(tree_sitter);
     tree_sitter_typescript.linkLibCpp();
 
