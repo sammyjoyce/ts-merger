@@ -1,8 +1,8 @@
 const std = @import("std");
 const testing = std.testing;
-const parser_mod = @import("../src/parser/mod.zig");
-const typescript = @import("../src/parser/typescript.zig");
-const flow = @import("../src/core/flow.zig");
+const parser_mod = @import("parser");
+const typescript = @import("tree_sitter_typescript");
+const flow = @import("flow");
 
 test "merge TypeScript files" {
     const allocator = testing.allocator;

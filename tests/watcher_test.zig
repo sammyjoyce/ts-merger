@@ -1,6 +1,6 @@
 const std = @import("std");
 const testing = std.testing;
-const watcher = @import("../src/watcher/mod.zig");
+const watcher = @import("watcher");
 
 test "create and initialize watcher" {
     const allocator = testing.allocator;

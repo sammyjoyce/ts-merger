@@ -1,6 +1,6 @@
 const std = @import("std");
 const testing = std.testing;
-const cli = @import("../src/commands/cli.zig");
+const cli = @import("cli");
 
 test "parse help command" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);

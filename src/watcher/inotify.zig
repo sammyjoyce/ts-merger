@@ -77,7 +77,7 @@ pub const InotifyWatcher = struct {
         const wd = try posix.inotify_add_watch(self.inotify_fd, path, flags);
         errdefer _ = posix.inotify_rm_watch(self.inotify_fd, wd);
 
-        var dir = if (is_dir)
+        const dir = if (is_dir)
             std.fs.openDirAbsolute(path, .{ .access_sub_paths = true }) catch |err| {
                 Logger.scoped(.Warning, "watcher").err("Failed to open directory {s}: {s}", .{ path, @errorName(err) });
                 return err;

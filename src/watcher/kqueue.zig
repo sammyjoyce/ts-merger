@@ -7,11 +7,12 @@ const Logger = @import("../utils/log.zig").Logger;
 const EVENTS_MAX = 32;
 
 pub const KqueueWatcher = struct {
-    const WatchEntry = struct {
+    const WatchedPath = struct {
         path: []const u8,
         fd: i32,
         is_dir: bool,
         walker: ?std.fs.Dir.Iterator,
+        sub_dirs: std.ArrayList([]const u8),
     };
 
     allocator: std.mem.Allocator,
