@@ -8,7 +8,7 @@
             .hash = "12200abadc141099ff2ba5098f7eca9bf84d548dd92ec5827ef323d813d59b049780",
         },
         .libxev = .{
-            .path = "./pkgs/libxev",
+            .path = "./pkg/libxev",
         },
         .tree_sitter = .{
             .path = "./pkg/tree-sitter",
