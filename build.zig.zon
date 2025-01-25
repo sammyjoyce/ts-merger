@@ -11,16 +11,6 @@
             .url = "git+https://github.com/mitchellh/libxev#main",
             .hash = "1220ebf88622c4d502dc59e71347e4d28c47e033f11b59aff774ae5787565c40999c",
         },
-        ."tree-sitter" = .{ 
-            .path = "./pkg/tree-sitter",
-            // Add hash after running: zig build -Dfetch
-            .hash = "1220...",
-        },
-        ."tree-sitter-typescript" = .{
-            .path = "./pkg/tree-sitter-typescript",
-            // Add hash after running: zig build -Dfetch 
-            .hash = "1220...",
-        },
     },
     .paths = .{
         "build.zig",

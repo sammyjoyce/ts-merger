@@ -31,9 +31,13 @@ fn addTests(
         .patches = &.{
             .{
                 .path = "libxev.patch",
-                .strip = 1,
+                .strip = 0, // Critical fix - patch was created from repo root
             },
         },
+        .version = .{ .git = .{
+            .url = "https://github.com/mitchellh/libxev",
+            .hash = "1220ebf88622c4d502dc59e71347e4d28c47e033f11b59aff774ae5787565c40",
+        } },
     });
 
     // Get libxev module and compile artifact
