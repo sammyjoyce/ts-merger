@@ -106,7 +106,7 @@ pub const Watcher = struct {
         _ = loop;
         _ = comp;
         const self = @as(*Watcher, @ptrCast(@alignCast(userdata.?)));
-        
+
         const kind: WatchEvent.EventKind = if (res.err) |err| switch (err) {
             error.FileDeleted => .delete,
             else => .modify,
