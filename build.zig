@@ -101,13 +101,7 @@ fn addTests(
 
     // Configure and add each test
     for (source_tests) |test_info| {
-        const test_exe = b.addTest(.{
-            .name = test_info.name ++ "_test",
-            .root_source_file = .{ .cwd_relative = test_info.path },
-            .target = target,
-            .optimize = optimize,
-            .filter = b.option([]const u8, "test-filter", "Filter for test"),
-        });
+        const test_exe = b.addTest(.{ .name = b.fmt("{s}_test", .{test_info.name}), .root_source_file = .{ .cwd_relative = test_info.path }, .target = target, .optimize = optimize });
 
         // Add module imports
         for (test_info.modules) |mod| {
@@ -126,6 +120,7 @@ fn addTests(
     }
 
     return test_step;
+}
 
 /// Main build function (Zig 0.14.0 style)
 pub fn build(b: *std.Build) !void {
@@ -190,7 +185,7 @@ pub fn build(b: *std.Build) !void {
     const ts_parser_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "parser.c" });
     defer b.allocator.free(ts_parser_c);
 
-    const ts_scanner_cc = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "scanner.cc" });
+    const ts_scanner_cc = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "scanner.c" });
     defer b.allocator.free(ts_scanner_cc);
 
     const ts_include_path = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src" });
@@ -202,7 +197,7 @@ pub fn build(b: *std.Build) !void {
     });
     tree_sitter_typescript.addCSourceFile(.{
         .file = .{ .cwd_relative = ts_scanner_cc },
-        .flags = &.{ "-std=c++17", "-fPIC" },
+        .flags = &.{ "-std=c99", "-fPIC" },
     });
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = ts_include_path });
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });

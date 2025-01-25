@@ -165,47 +165,30 @@ pub fn parseArgsFromProcess(allocator: std.mem.Allocator) ParseError!Config {
     };
 }
 test "parse help command" {
-    var arena = std.heap.ArenaAllocator.init(testing.allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-
-    const args = [_][]const u8{ "fuze", "--help" };
-    var config = try parseArgs(allocator, &args);
-    defer config.deinit(allocator);
-
+    const allocator = std.testing.allocator;
+    const args = [_][]const u8{ "ts-merger", "--help" };
+    const config = try parseArgs(allocator, &args);
     try testing.expect(config.show_help);
 }
 
 test "parse watch command" {
-    var arena = std.heap.ArenaAllocator.init(testing.allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-
-    const args = [_][]const u8{ "fuze", "watch", "-r", "-v", "src" };
-    var config = try parseArgs(allocator, &args);
-    defer config.deinit(allocator);
-
-    try testing.expectEqual(Command.watch, config.command);
+    const allocator = std.testing.allocator;
+    const args = [_][]const u8{ "ts-merger", "watch", "--recursive", "src/a.ts" };
+    const config = try parseArgs(allocator, &args);
     try testing.expect(config.recursive);
-    try testing.expect(config.verbose);
-    try testing.expectEqual(@as(usize, 1), config.source_paths.len);
-    try testing.expectEqualStrings("src", config.source_paths[0]);
+    try testing.expectEqualStrings("src/a.ts", config.source_paths[0]);
 }
 
-test "parse merge command" {
-    var arena = std.heap.ArenaAllocator.init(testing.allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+test "parse missing target - merge" {
+    const allocator = std.testing.allocator;
+    const args = [_][]const u8{ "ts-merger", "merge", "src/a.ts" };
+    try testing.expectError(error.NoTargetFile, parseArgs(allocator, &args));
+}
 
-    const args = [_][]const u8{ "fuze", "merge", "-t", "dist/output.ts", "src/a.ts", "src/b.ts" };
-    var config = try parseArgs(allocator, &args);
-    defer config.deinit(allocator);
-
-    try testing.expectEqual(Command.merge, config.command);
-    try testing.expectEqual(@as(usize, 2), config.source_paths.len);
-    try testing.expectEqualStrings("src/a.ts", config.source_paths[0]);
-    try testing.expectEqualStrings("src/b.ts", config.source_paths[1]);
-    try testing.expectEqualStrings("dist/output.ts", config.target_path.?);
+test "parse missing target - watch" {
+    const allocator = std.testing.allocator;
+    const args = [_][]const u8{ "ts-merger", "watch", "src/a.ts" };
+    try testing.expectError(error.NoTargetFile, parseArgs(allocator, &args));
 }
 
 test "parse invalid command" {

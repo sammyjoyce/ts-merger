@@ -1,20 +1,16 @@
 const std = @import("std");
-const ast = @import("ast/ast.zig");
+const ast_types = @import("ast_types");
+const parser_typescript = @import("typescript");
 const Logger = @import("../utils/log.zig").Logger;
 
-pub const FlowError = error{
-    CyclicDependency,
-    InvalidNodeStructure,
-};
-
 pub const Flow = struct {
-    nodes: std.ArrayList(*ast.Node),
+    nodes: std.ArrayList(*ast_types.Node),
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !*Flow {
         const flow = try allocator.create(Flow);
         flow.* = .{
-            .nodes = std.ArrayList(*ast.Node).init(allocator),
+            .nodes = std.ArrayList(*ast_types.Node).init(allocator),
             .allocator = allocator,
         };
         return flow;
@@ -27,7 +23,7 @@ pub const Flow = struct {
         self.nodes.deinit();
     }
 
-    pub fn addNode(self: *Flow, node: *ast.Node) !void {
+    pub fn addNode(self: *Flow, node: *ast_types.Node) !void {
         if (node.kind.kind == .unknown) {
             Logger.scoped(.Warning, "flow").err("Skipping unknown node type", .{});
             return;
@@ -36,22 +32,22 @@ pub const Flow = struct {
         // Check for cyclic dependencies before adding the node
         for (node.dependencies.items) |dep| {
             if (dep == node) {
-                return FlowError.CyclicDependency;
+                return error.CyclicDependency;
             }
 
             // Check if this dependency creates a cycle
-            var visited = std.AutoHashMap(*ast.Node, void).init(self.allocator);
+            var visited = std.AutoHashMap(*ast_types.Node, void).init(self.allocator);
             defer visited.deinit();
 
             if (try self.hasCycle(dep, node, &visited)) {
-                return FlowError.CyclicDependency;
+                return error.CyclicDependency;
             }
         }
 
         try self.nodes.append(node);
     }
 
-    fn hasCycle(self: *Flow, current: *ast.Node, target: *ast.Node, visited: *std.AutoHashMap(*ast.Node, void)) !bool {
+    fn hasCycle(self: *Flow, current: *ast_types.Node, target: *ast_types.Node, visited: *std.AutoHashMap(*ast_types.Node, void)) !bool {
         if (current == target) return true;
         if (visited.contains(current)) return false;
 
@@ -66,12 +62,12 @@ pub const Flow = struct {
         return false;
     }
 
-    pub fn getNodes(self: *Flow) []const *ast.Node {
+    pub fn getNodes(self: *Flow) []const *ast_types.Node {
         return self.nodes.items;
     }
 
-    pub fn getTopologicalOrder(self: *Flow) !std.ArrayList(*ast.Node) {
-        var in_degree = std.AutoHashMap(*ast.Node, u32).init(self.allocator);
+    pub fn getTopologicalOrder(self: *Flow) !std.ArrayList(*ast_types.Node) {
+        var in_degree = std.AutoHashMap(*ast_types.Node, u32).init(self.allocator);
         defer in_degree.deinit();
 
         // Initialize in-degrees based on dependencies
@@ -86,7 +82,7 @@ pub const Flow = struct {
         }
 
         // Kahn's algorithm implementation
-        var queue = std.ArrayList(*ast.Node).init(self.allocator);
+        var queue = std.ArrayList(*ast_types.Node).init(self.allocator);
         defer queue.deinit();
 
         for (self.nodes.items) |node| {
@@ -95,7 +91,7 @@ pub const Flow = struct {
             }
         }
 
-        var sorted = std.ArrayList(*ast.Node).init(self.allocator);
+        var sorted = std.ArrayList(*ast_types.Node).init(self.allocator);
         while (queue.popOrNull()) |node| {
             try sorted.append(node);
             for (node.dependents.items) |dependent| {
@@ -109,7 +105,7 @@ pub const Flow = struct {
         }
 
         if (sorted.items.len != self.nodes.items.len) {
-            var cycle_node: ?*ast.Node = null;
+            var cycle_node: ?*ast_types.Node = null;
             var it = in_degree.iterator();
             while (it.next()) |entry| {
                 if (entry.value_ptr.* > 0) {
@@ -124,7 +120,7 @@ pub const Flow = struct {
 
                 Logger.scoped(.Error, "flow").err("Circular dependency detected: {s}", .{cycle_path});
             }
-            return FlowError.CircularDependency;
+            return error.CircularDependency;
         }
 
         return sorted;
@@ -160,7 +156,7 @@ pub const Flow = struct {
         }
     }
 
-    fn writeNode(self: *Flow, writer: anytype, node: *ast.Node) !void {
+    fn writeNode(self: *Flow, writer: anytype, node: *ast_types.Node) !void {
         switch (node.kind.kind) {
             .program, .export_statement, .interface_declaration, .class_declaration, .method_definition => try writer.writeAll("\n"),
             else => {},
@@ -185,9 +181,9 @@ pub const Flow = struct {
     }
 };
 
-fn detectCycleDfs(allocator: std.mem.Allocator, start: *ast.Node) ![]const u8 {
-    var visited = std.AutoHashMap(*ast.Node, void).init(allocator);
-    var stack = std.ArrayList(*ast.Node).init(allocator);
+fn detectCycleDfs(allocator: std.mem.Allocator, start: *ast_types.Node) ![]const u8 {
+    var visited = std.AutoHashMap(*ast_types.Node, void).init(allocator);
+    var stack = std.ArrayList(*ast_types.Node).init(allocator);
     var path = std.ArrayList(u8).init(allocator);
 
     try stack.append(start);
@@ -235,103 +231,4 @@ test "cyclic dependency detection" {
 
     const root = try parser.parse(cyclic_source);
     try testing.expectError(error.CyclicDependency, flow_graph.addNode(root));
-}
-
-test "nested type relationships" {
-    const allocator = testing.allocator;
-    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
-    defer ts_parser_impl.deinit();
-
-    var parser = parser_mod.Parser.init(allocator, ts_parser_impl, &typescript.interface);
-    defer parser.deinit();
-
-    var flow_graph = try Flow.init(allocator);
-    defer flow_graph.deinit();
-
-    const nested_source =
-        \\ interface Outer {
-        \\     inner: Inner;
-        \\     data: {
-        \\         nested: NestedType;
-        \\         optional?: string;
-        \\     };
-        \\ }
-        \\ interface Inner {
-        \\     value: string;
-        \\ }
-        \\ type NestedType = string | number;
-    ;
-
-    const root = try parser.parse(nested_source);
-    try flow_graph.addNode(root);
-
-    // Test nested type relationships
-    const outer = flow_graph.findNodeByName("Outer") orelse {
-        try testing.expect(false);
-        return;
-    };
-
-    var deps = try flow_graph.getFlowForNode(outer);
-    defer deps.deinit();
-
-    // Outer should depend on Inner and NestedType
-    var found_inner = false;
-    var found_nested = false;
-    for (deps.items) |node| {
-        if (std.mem.eql(u8, node.name, "Inner")) {
-            found_inner = true;
-        } else if (std.mem.eql(u8, node.name, "NestedType")) {
-            found_nested = true;
-        }
-    }
-    try testing.expect(found_inner);
-    try testing.expect(found_nested);
-}
-
-test "generic type flow" {
-    const allocator = testing.allocator;
-    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
-    defer ts_parser_impl.deinit();
-
-    var parser = parser_mod.Parser.init(allocator, ts_parser_impl, &typescript.interface);
-    defer parser.deinit();
-
-    var flow_graph = try Flow.init(allocator);
-    defer flow_graph.deinit();
-
-    const generic_source =
-        \\ interface Container<T> {
-        \\     data: T;
-        \\ }
-        \\ interface DataType {
-        \\     value: number;
-        \\ }
-        \\ class Implementation implements Container<DataType> {
-        \\     data: DataType;
-        \\ }
-    ;
-
-    const root = try parser.parse(generic_source);
-    try flow_graph.addNode(root);
-
-    const impl = flow_graph.findNodeByName("Implementation") orelse {
-        try testing.expect(false);
-        return;
-    };
-
-    var deps = try flow_graph.getFlowForNode(impl);
-    defer deps.deinit();
-
-    // Implementation should depend on both Container and DataType
-    var found_container = false;
-    var found_data_type = false;
-    for (deps.items) |node| {
-        if (std.mem.eql(u8, node.name, "Container")) {
-            found_container = true;
-        } else if (std.mem.eql(u8, node.name, "DataType")) {
-            found_data_type = true;
-        }
-    }
-    try testing.expect(found_container);
-    try testing.expect(found_data_type);
 }

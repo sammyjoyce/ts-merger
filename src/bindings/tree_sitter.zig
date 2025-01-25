@@ -35,6 +35,7 @@ pub const TreeSitterError = error{
     ParseError,
     EmptySource,
     SourceTooLarge,
+    QueryError,
 };
 
 pub fn Parser_init() TreeSitterError!*Parser {
@@ -142,7 +143,7 @@ pub const SymbolType = enum(c_uint) {
 test "tree-sitter parser initialization" {
     const parser = try Parser_init();
     defer ts_parser_delete(parser);
-    try std.testing.expect(parser != undefined);
+    try std.testing.expect(parser != null);
 }
 
 test "tree-sitter cursor operations" {
@@ -178,6 +179,17 @@ test "tree-sitter symbol type" {
     try std.testing.expectEqual(SymbolType.Anonymous, SymbolType.Anonymous);
 }
 
+test "tree-sitter error handling - basic" {
+    const makeErrorFn = struct {
+        fn make(err: TreeSitterError) !void {
+            return err;
+        }
+    }.make;
+
+    try std.testing.expectError(error.ParserCreationFailed, makeErrorFn(error.ParserCreationFailed));
+    try std.testing.expectError(error.QueryError, makeErrorFn(error.QueryError));
+}
+
 test "tree-sitter error handling" {
     const makeErrorFn = struct {
         fn make(err: TreeSitterError) !void {
@@ -185,6 +197,6 @@ test "tree-sitter error handling" {
         }
     }.make;
 
-    try std.testing.expectError(error.ParseError, makeErrorFn(error.ParseError));
+    try std.testing.expectError(error.ParserCreationFailed, makeErrorFn(error.ParserCreationFailed));
     try std.testing.expectError(error.QueryError, makeErrorFn(error.QueryError));
 }

@@ -50,7 +50,7 @@ pub const ParserImpl = struct {
     }
 };
 
-test "parser memory management" {
+test "parser memory management - basic" {
     const allocator = testing.allocator;
     var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
@@ -78,7 +78,7 @@ test "parser memory management" {
     try testing.expect(root_node.children.items.len > 0);
 }
 
-test "parser error handling" {
+test "parser error handling - basic" {
     const allocator = testing.allocator;
     var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
@@ -96,7 +96,7 @@ test "parser error handling" {
     try testing.expect(root_node.children.items.len > 0);
 }
 
-test "parser memory management" {
+test "parser memory management - advanced" {
     const allocator = testing.allocator;
     var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
@@ -124,7 +124,7 @@ test "parser memory management" {
     try testing.expect(root_node.children.items.len > 0);
 }
 
-test "parser error handling" {
+test "parser error handling - advanced" {
     const allocator = testing.allocator;
     var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
@@ -141,7 +141,7 @@ test "parser error handling" {
     try testing.expect(root_node != null);
     try testing.expect(root_node.children.items.len > 0);
 }
-test "parser memory management" {
+test "parser memory management - edge cases" {
     const allocator = testing.allocator;
     var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
@@ -169,7 +169,7 @@ test "parser memory management" {
     try testing.expect(root_node.children.items.len > 0);
 }
 
-test "parser error handling" {
+test "parser error handling - edge cases" {
     const allocator = testing.allocator;
     var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
