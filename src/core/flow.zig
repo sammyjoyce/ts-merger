@@ -2,7 +2,7 @@ const std = @import("std");
 const tree_sitter = @import("tree_sitter");
 const tree_sitter_typescript = @import("tree_sitter_typescript");
 const ast_types = @import("ast_types");
-const typescript = @import("tree_sitter_typescript");
+const ts = @import("tree_sitter_typescript");
 const Logger = @import("../utils/log.zig").Logger;
 
 pub const Flow = struct {
@@ -210,7 +210,6 @@ fn detectCycleDfs(allocator: std.mem.Allocator, start: *ast_types.Node) ![]const
 }
 
 const testing = std.testing;
-const typescript = @import("../parser/typescript.zig");
 const parser_mod = @import("../parser/mod.zig");
 
 test "cyclic dependency detection" {
