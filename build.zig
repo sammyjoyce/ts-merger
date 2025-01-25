@@ -38,7 +38,7 @@ fn addTests(
 
     // Add libxev dependency after patch
     const libxev_dep = b.dependency("libxev", .{});
-    libxev_dep.builder.step.dependOn(&patch_step.step);
+    libxev_dep.builder.dependOn(&patch_step.step);
 
     const libxev_module = libxev_dep.module("libxev");
 
