@@ -1,6 +1,5 @@
 const std = @import("std");
 const tree_sitter = @import("tree_sitter");
-const tree_sitter_typescript = @import("tree_sitter_typescript");
 const ast_types = @import("ast_types");
 const ts = @import("tree_sitter_typescript");
 const Logger = @import("../utils/log.zig").Logger;
@@ -214,7 +213,7 @@ const parser_mod = @import("../parser/mod.zig");
 
 test "cyclic dependency detection" {
     const allocator = testing.allocator;
-    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    var ts_parser_impl = try ts.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
 
     var parser = parser_mod.Parser.init(allocator, ts_parser_impl, &typescript.interface);
