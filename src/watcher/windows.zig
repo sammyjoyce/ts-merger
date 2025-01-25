@@ -1,7 +1,6 @@
 const std = @import("std");
 const windows = std.os.windows;
 const mod = @import("mod.zig");
-const Logger = @import("../utils/log.zig").Logger;
 
 const EVENTS_MAX = 32;
 const FILE_NOTIFY_BUFFER_SIZE = 4096;
@@ -13,7 +12,6 @@ pub const WindowsWatcher = struct {
     running: std.atomic.Value(bool),
     callback: ?mod.WatchCallback,
     completion_port: windows.HANDLE,
-    shutdown_event: windows.HANDLE,
 
     const WatchedPath = struct {
         path: []const u8,
@@ -32,7 +30,6 @@ pub const WindowsWatcher = struct {
         );
         errdefer windows.CloseHandle(completion_port);
 
-        const shutdown_event = try windows.CreateEventW(null, windows.TRUE, windows.FALSE, null);
         return WindowsWatcher{
             .allocator = allocator,
             .watched_paths = std.StringHashMap(*WatchedPath).init(allocator),
@@ -40,7 +37,6 @@ pub const WindowsWatcher = struct {
             .running = std.atomic.Value(bool).init(false),
             .callback = null,
             .completion_port = completion_port,
-            .shutdown_event = shutdown_event,
         };
     }
 
@@ -111,19 +107,10 @@ pub const WindowsWatcher = struct {
         if (!self.running.load(.acquire)) return;
 
         self.running.store(false, .release);
-        // Signal completion port to break GetQueuedCompletionStatusEx
-        _ = windows.PostQueuedCompletionStatus(
-            self.completion_port,
-            0,
-            0,
-            null,
-        );
-
         if (self.thread) |thread| {
             thread.join();
             self.thread = null;
         }
-        _ = windows.CloseHandle(self.shutdown_event);
     }
 
     pub fn setCallback(self: *WindowsWatcher, callback: mod.WatchCallback) void {
@@ -184,28 +171,14 @@ pub const WindowsWatcher = struct {
                         else => continue,
                     };
 
-                    const watched_utf16 = try std.unicode.utf8ToUtf16LeWithNull(self.allocator, watched.path);
-                    defer self.allocator.free(watched_utf16);
-
-                    const file_name_utf16 = try std.unicode.utf8ToUtf16LeWithNull(self.allocator, file_path);
-                    defer self.allocator.free(file_name_utf16);
-
-                    const full_path = try std.fs.path.joinW(self.allocator, &.{
-                        watched_utf16,
-                        file_name_utf16,
-                    });
-                    defer self.allocator.free(full_path);
-
                     const watch_event = mod.WatchEvent{
-                        .path = try self.allocator.dupe(u8, full_path),
+                        .path = std.fs.path.join(self.allocator, &[_][]const u8{ watched.path, file_path }) catch continue,
                         .kind = kind,
                     };
-                    defer self.allocator.free(watch_event.path);
 
                     if (self.callback) |cb| {
-                        cb(watch_event) catch |err| {
-                            Logger.scoped(.Error, "watcher").err("Callback failed: {s}", .{@errorName(err)});
-                        };
+                        cb(watch_event);
+                        self.allocator.free(watch_event.path);
                     }
 
                     if (file_info.NextEntryOffset == 0) break;

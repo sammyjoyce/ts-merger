@@ -1,5 +1,6 @@
 const std = @import("std");
 const watcher = @import("watcher");
+const testing = std.testing;
 
 pub const Command = enum {
     merge,
@@ -13,6 +14,7 @@ pub const Config = struct {
     watch_delay_ms: u64,
     show_help: bool,
     verbose: bool,
+    recursive: bool,
 
     pub fn deinit(self: *Config, allocator: std.mem.Allocator) void {
         for (self.source_paths) |path| {
@@ -31,7 +33,60 @@ const ParseError = error{
     NoSourcePaths,
     NoTargetPath,
     OutOfMemory,
+    UnknownCommand,
+    InvalidNumber,
 };
+
+pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Config {
+    if (args.len < 2) {
+        return ParseError.NoCommand;
+    }
+
+    var config = Config{
+        .command = undefined,
+        .source_paths = &[_][]const u8{},
+        .target_path = null,
+        .watch_delay_ms = 100,
+        .show_help = false,
+        .verbose = false,
+        .recursive = false,
+    };
+
+    // Parse command
+    config.command = std.meta.stringToEnum(Command, args[1]) orelse {
+        return ParseError.UnknownCommand;
+    };
+
+    var source_paths = std.ArrayList([]const u8).init(allocator);
+    var i: usize = 2;
+    while (i < args.len) : (i += 1) {
+        const arg = args[i];
+        if (std.mem.eql(u8, arg, "-t") or std.mem.eql(u8, arg, "--target")) {
+            i += 1;
+            if (i >= args.len) return ParseError.NoTargetPath;
+            config.target_path = try allocator.dupe(u8, args[i]);
+        } else if (std.mem.eql(u8, arg, "-d") or std.mem.eql(u8, arg, "--delay")) {
+            i += 1;
+            if (i >= args.len) return ParseError.InvalidNumber;
+            config.watch_delay_ms = std.fmt.parseInt(u64, args[i], 10) catch {
+                return ParseError.InvalidNumber;
+            };
+        } else if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) {
+            config.show_help = true;
+        } else if (std.mem.eql(u8, arg, "-v") or std.mem.eql(u8, arg, "--verbose")) {
+            config.verbose = true;
+        } else {
+            try source_paths.append(try allocator.dupe(u8, arg));
+        }
+    }
+
+    if (source_paths.items.len == 0 and !config.show_help) {
+        return ParseError.NoSourcePaths;
+    }
+
+    config.source_paths = try source_paths.toOwnedSlice();
+    return config;
+}
 
 pub fn printHelp() void {
     std.debug.print(
@@ -108,4 +163,74 @@ pub fn parseArgsFromProcess(allocator: std.mem.Allocator) ParseError!Config {
         .show_help = show_help,
         .verbose = verbose,
     };
+}
+test "parse help command" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const args = [_][]const u8{ "fuze", "--help" };
+    var config = try parseArgs(allocator, &args);
+    defer config.deinit(allocator);
+
+    try testing.expect(config.show_help);
+}
+
+test "parse watch command" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const args = [_][]const u8{ "fuze", "watch", "-r", "-v", "src" };
+    var config = try parseArgs(allocator, &args);
+    defer config.deinit(allocator);
+
+    try testing.expectEqual(Command.watch, config.command);
+    try testing.expect(config.recursive);
+    try testing.expect(config.verbose);
+    try testing.expectEqual(@as(usize, 1), config.source_paths.len);
+    try testing.expectEqualStrings("src", config.source_paths[0]);
+}
+
+test "parse merge command" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const args = [_][]const u8{ "fuze", "merge", "-t", "dist/output.ts", "src/a.ts", "src/b.ts" };
+    var config = try parseArgs(allocator, &args);
+    defer config.deinit(allocator);
+
+    try testing.expectEqual(Command.merge, config.command);
+    try testing.expectEqual(@as(usize, 2), config.source_paths.len);
+    try testing.expectEqualStrings("src/a.ts", config.source_paths[0]);
+    try testing.expectEqualStrings("src/b.ts", config.source_paths[1]);
+    try testing.expectEqualStrings("dist/output.ts", config.target_path.?);
+}
+
+test "parse invalid command" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const args = [_][]const u8{ "fuze", "invalid" };
+    try testing.expectError(error.UnknownCommand, parseArgs(allocator, &args));
+}
+
+test "parse missing target" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const args = [_][]const u8{ "fuze", "merge", "src/a.ts" };
+    try testing.expectError(error.NoTargetPath, parseArgs(allocator, &args));
+}
+
+test "parse invalid watch delay" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    const args = [_][]const u8{ "fuze", "watch", "-d", "invalid", "src" };
+    try testing.expectError(error.InvalidNumber, parseArgs(allocator, &args));
 }

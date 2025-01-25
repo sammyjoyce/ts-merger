@@ -1,0 +1,7 @@
+[submodule "pkg/tree-sitter"]
+	path = pkg/tree-sitter
+	url = https://github.com/tree-sitter/tree-sitter.git
+
+[submodule "pkg/tree-sitter-typescript"]
+	path = pkg/tree-sitter-typescript
+	url = https://github.com/tree-sitter/tree-sitter-typescript.git

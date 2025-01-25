@@ -11,7 +11,7 @@ fn validatePathComponent(comptime part: []const u8) void {
     }
 }
 
-/// Add all unit/integration tests, returning the step to run them.
+/// Add all unit tests from source files, returning the test step.
 fn addTests(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -26,9 +26,7 @@ fn addTests(
     // This step is the global container for all tests.
     const test_step = b.step("test", "Run all tests");
 
-    //
-    // Example: some modules for the tests
-    //
+    // Create modules needed for tests
     const ast_types_module = b.createModule(.{
         .root_source_file = .{ .cwd_relative = "src/core/ast/ast_types.zig" },
         .imports = &.{.{ .name = "tree_sitter", .module = options.tree_sitter }},
@@ -51,133 +49,83 @@ fn addTests(
         },
     });
 
-    // Example modules for CLI, types, watchers, etc. (only if needed)
-    const cli_module = b.createModule(.{
-        .root_source_file = .{ .cwd_relative = "src/commands/cli.zig" },
-        .imports = &.{},
-    });
+    // Add tests from source files
+    const source_tests = [_]struct {
+        name: []const u8,
+        path: []const u8,
+        modules: []const struct { name: []const u8, module: *std.Build.Module },
+        needs_cpp: bool,
+    }{
+        .{
+            .name = "tree_sitter",
+            .path = "src/bindings/tree_sitter.zig",
+            .modules = &.{.{ .name = "tree_sitter", .module = options.tree_sitter }},
+            .needs_cpp = false,
+        },
+        .{
+            .name = "parser",
+            .path = "src/parser/mod.zig",
+            .modules = &.{
+                .{ .name = "tree_sitter", .module = options.tree_sitter },
+                .{ .name = "tree_sitter_typescript", .module = options.tree_sitter_typescript },
+                .{ .name = "ast_types", .module = ast_types_module },
+            },
+            .needs_cpp = true,
+        },
+        .{
+            .name = "flow",
+            .path = "src/core/flow.zig",
+            .modules = &.{
+                .{ .name = "tree_sitter", .module = options.tree_sitter },
+                .{ .name = "tree_sitter_typescript", .module = options.tree_sitter_typescript },
+                .{ .name = "ast_types", .module = ast_types_module },
+            },
+            .needs_cpp = true,
+        },
+        .{
+            .name = "cli",
+            .path = "src/commands/cli.zig",
+            .modules = &.{
+                .{ .name = "parser", .module = parser_module },
+                .{ .name = "flow", .module = flow_module },
+            },
+            .needs_cpp = false,
+        },
+        .{
+            .name = "watcher",
+            .path = "src/watcher/mod.zig",
+            .modules = &.{},
+            .needs_cpp = true,
+        },
+    };
 
-    const watcher_module = b.createModule(.{
-        .root_source_file = .{ .cwd_relative = "src/watcher/mod.zig" },
-        .imports = &.{},
-    });
+    // Configure and add each test
+    for (source_tests) |test_info| {
+        const test_exe = b.addTest(.{
+            .name = test_info.name ++ "_test",
+            .root_source_file = .{ .cwd_relative = test_info.path },
+            .target = target,
+            .optimize = optimize,
+            .filter = b.option([]const u8, "test-filter", "Filter for test"),
+        });
 
-    //
-    // Now define the test executables themselves:
-    //
+        // Add module imports
+        for (test_info.modules) |mod| {
+            test_exe.root_module.addImport(mod.name, mod.module);
+        }
 
-    // Example: tree_sitter_test
-    const tree_sitter_tests = b.addTest(.{
-        .name = "tree_sitter_test",
-        .root_source_file = .{ .cwd_relative = "tests/tree_sitter_test.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-    tree_sitter_tests.root_module.addImport("tree_sitter", options.tree_sitter);
-    tree_sitter_tests.linkLibrary(options.tree_sitter_lib);
-    test_step.dependOn(&tree_sitter_tests.step);
+        // Link required libraries
+        test_exe.linkLibrary(options.tree_sitter_lib);
+        if (test_info.needs_cpp) {
+            test_exe.linkLibrary(options.tree_sitter_typescript_lib);
+            test_exe.linkLibCpp();
+        }
+        test_exe.linkLibC();
 
-    // parser_test
-    const parser_tests = b.addTest(.{
-        .name = "parser_test",
-        .root_source_file = .{ .cwd_relative = "tests/parser_test.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-    parser_tests.root_module.addImport("tree_sitter", options.tree_sitter);
-    parser_tests.root_module.addImport("tree_sitter_typescript", options.tree_sitter_typescript);
-    parser_tests.root_module.addImport("ast_types", ast_types_module);
-    parser_tests.root_module.addImport("parser", parser_module);
-    parser_tests.linkLibrary(options.tree_sitter_lib);
-    parser_tests.linkLibrary(options.tree_sitter_typescript_lib);
-    parser_tests.linkLibCpp();
-    test_step.dependOn(&parser_tests.step);
-
-    // flow_test
-    const flow_tests = b.addTest(.{
-        .name = "flow_test",
-        .root_source_file = .{ .cwd_relative = "tests/flow_test.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-    flow_tests.root_module.addImport("ast_types", ast_types_module);
-    flow_tests.root_module.addImport("flow", flow_module);
-    flow_tests.root_module.addImport("parser", parser_module);
-    test_step.dependOn(&flow_tests.step);
-
-    // cli_test
-    const cli_tests = b.addTest(.{
-        .name = "cli_test",
-        .root_source_file = .{ .cwd_relative = "tests/cli_test.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-    cli_tests.root_module.addImport("cli", cli_module);
-    test_step.dependOn(&cli_tests.step);
-
-    // watcher_test
-    const watcher_tests = b.addTest(.{
-        .name = "watcher_test",
-        .root_source_file = .{ .cwd_relative = "tests/watcher_test.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-    watcher_tests.root_module.addImport("watcher", watcher_module);
-    test_step.dependOn(&watcher_tests.step);
-
-    //
-    // Additional test executables that compile from source modules
-    // (These can add object files, link libs, etc. as needed)
-    //
-
-    // Example: parser_test artifact from src/parser/mod.zig
-    const parser_test = b.addTest(.{
-        .root_source_file = .{ .cwd_relative = "src/parser/mod.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-    parser_test.root_module.addImport("tree_sitter", options.tree_sitter);
-    parser_test.root_module.addImport("tree_sitter_typescript", options.tree_sitter_typescript);
-    parser_test.linkLibrary(options.tree_sitter_lib);
-    parser_test.linkLibrary(options.tree_sitter_typescript_lib);
-    parser_test.linkLibCpp();
-    parser_test.linkLibC();
-    parser_test.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
-    test_step.dependOn(&b.addRunArtifact(parser_test).step);
-
-    // Example: flow_test artifact from src/core/flow.zig
-    const flow_test = b.addTest(.{
-        .root_source_file = .{ .cwd_relative = "src/core/flow.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-    flow_test.root_module.addImport("tree_sitter", options.tree_sitter);
-    flow_test.root_module.addImport("tree_sitter_typescript", options.tree_sitter_typescript);
-    flow_test.root_module.addImport("ast_types", ast_types_module);
-    flow_test.linkLibrary(options.tree_sitter_lib);
-    flow_test.linkLibrary(options.tree_sitter_typescript_lib);
-    flow_test.addObjectFile(.{ .cwd_relative = "pkg/tree-sitter/src/lib.c" });
-    flow_test.addObjectFile(.{ .cwd_relative = "pkg/tree-sitter-typescript/typescript/src/scanner.cc" });
-    flow_test.addObjectFile(.{ .cwd_relative = "pkg/tree-sitter-typescript/typescript/src/parser.c" });
-    flow_test.linkLibCpp();
-    flow_test.linkLibC();
-    flow_test.addIncludePath(.{ .cwd_relative = "pkg/tree-sitter/lib/include" });
-    flow_test.addIncludePath(.{ .cwd_relative = "pkg/tree-sitter-typescript/typescript/src" });
-    flow_test.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
-    test_step.dependOn(&b.addRunArtifact(flow_test).step);
-
-    // Example: watcher_test artifact from src/watcher/mod.zig
-    const watcher_test = b.addTest(.{
-        .root_source_file = .{ .cwd_relative = "src/watcher/mod.zig" },
-        .target = target,
-        .optimize = optimize,
-    });
-    watcher_test.linkLibC();
-    watcher_test.linkLibCpp();
-    test_step.dependOn(&b.addRunArtifact(watcher_test).step);
+        test_step.dependOn(&b.addRunArtifact(test_exe).step);
+    }
 
     return test_step;
-}
 
 /// Main build function (Zig 0.14.0 style)
 pub fn build(b: *std.Build) !void {
@@ -217,7 +165,7 @@ pub fn build(b: *std.Build) !void {
         tree_sitter.step.dependOn(&git_clone_ts.step);
     }
 
-    const ts_lib_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_path, "src", "lib.c" });
+    const ts_lib_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_path, "lib", "src", "lib.c" });
     defer b.allocator.free(ts_lib_c);
 
     tree_sitter.addCSourceFile(.{
@@ -286,7 +234,7 @@ pub fn build(b: *std.Build) !void {
     exe.addObjectFile(.{ .cwd_relative = ts_parser_c });
     exe.addObjectFile(.{ .cwd_relative = ts_scanner_cc });
     exe.linkLibCpp();
-    exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" }); // For macOS libc++.a
+    exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
 
     const run_cmd = b.addRunArtifact(exe);
     if (b.args) |args| {
@@ -308,4 +256,16 @@ pub fn build(b: *std.Build) !void {
         },
     );
     test_step.dependOn(&b.addRunArtifact(exe).step);
+}
+
+fn dirExists(allocator: std.mem.Allocator, path: []const u8) bool {
+    // Normalize the path to handle both absolute and relative paths
+    const real_path = std.fs.path.resolve(allocator, &.{path}) catch return false;
+    defer allocator.free(real_path);
+
+    // Try to open the directory
+    var dir = std.fs.cwd().openDir(".", .{}) catch return false;
+    defer dir.close();
+
+    return true;
 }

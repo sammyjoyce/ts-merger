@@ -1,9 +1,9 @@
 const std = @import("std");
-const ast = @import("core/ast/ast.zig");
+const ast = @import("ast/ast.zig");
 const Logger = @import("../utils/log.zig").Logger;
 
 pub const FlowError = error{
-    CircularDependency,
+    CyclicDependency,
     InvalidNodeStructure,
 };
 
@@ -23,7 +23,6 @@ pub const Flow = struct {
     pub fn deinit(self: *Flow) void {
         for (self.nodes.items) |node| {
             node.deinit();
-            self.allocator.destroy(node);
         }
         self.nodes.deinit();
     }
@@ -33,7 +32,42 @@ pub const Flow = struct {
             Logger.scoped(.Warning, "flow").err("Skipping unknown node type", .{});
             return;
         }
-        try self.nodes.append(node); // Directly use the node we already own
+
+        // Check for cyclic dependencies before adding the node
+        for (node.dependencies.items) |dep| {
+            if (dep == node) {
+                return FlowError.CyclicDependency;
+            }
+
+            // Check if this dependency creates a cycle
+            var visited = std.AutoHashMap(*ast.Node, void).init(self.allocator);
+            defer visited.deinit();
+
+            if (try self.hasCycle(dep, node, &visited)) {
+                return FlowError.CyclicDependency;
+            }
+        }
+
+        try self.nodes.append(node);
+    }
+
+    fn hasCycle(self: *Flow, current: *ast.Node, target: *ast.Node, visited: *std.AutoHashMap(*ast.Node, void)) !bool {
+        if (current == target) return true;
+        if (visited.contains(current)) return false;
+
+        try visited.put(current, {});
+
+        for (current.dependencies.items) |dep| {
+            if (try self.hasCycle(dep, target, visited)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    pub fn getNodes(self: *Flow) []const *ast.Node {
+        return self.nodes.items;
     }
 
     pub fn getTopologicalOrder(self: *Flow) !std.ArrayList(*ast.Node) {
@@ -150,6 +184,7 @@ pub const Flow = struct {
         }
     }
 };
+
 fn detectCycleDfs(allocator: std.mem.Allocator, start: *ast.Node) ![]const u8 {
     var visited = std.AutoHashMap(*ast.Node, void).init(allocator);
     var stack = std.ArrayList(*ast.Node).init(allocator);
@@ -174,4 +209,129 @@ fn detectCycleDfs(allocator: std.mem.Allocator, start: *ast.Node) ![]const u8 {
         }
     }
     return error.NoCycleFound;
+}
+
+const testing = std.testing;
+const typescript = @import("../parser/typescript.zig");
+const parser_mod = @import("../parser/mod.zig");
+
+test "cyclic dependency detection" {
+    const allocator = testing.allocator;
+    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    defer ts_parser_impl.deinit();
+
+    var parser = parser_mod.Parser.init(allocator, ts_parser_impl, &typescript.interface);
+    defer parser.deinit();
+
+    var flow_graph = try Flow.init(allocator);
+    defer flow_graph.deinit();
+
+    // Create a source with cyclic dependencies
+    const cyclic_source =
+        \\ class A extends B {}
+        \\ class B extends C {}
+        \\ class C extends A {}
+    ;
+
+    const root = try parser.parse(cyclic_source);
+    try testing.expectError(error.CyclicDependency, flow_graph.addNode(root));
+}
+
+test "nested type relationships" {
+    const allocator = testing.allocator;
+    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    defer ts_parser_impl.deinit();
+
+    var parser = parser_mod.Parser.init(allocator, ts_parser_impl, &typescript.interface);
+    defer parser.deinit();
+
+    var flow_graph = try Flow.init(allocator);
+    defer flow_graph.deinit();
+
+    const nested_source =
+        \\ interface Outer {
+        \\     inner: Inner;
+        \\     data: {
+        \\         nested: NestedType;
+        \\         optional?: string;
+        \\     };
+        \\ }
+        \\ interface Inner {
+        \\     value: string;
+        \\ }
+        \\ type NestedType = string | number;
+    ;
+
+    const root = try parser.parse(nested_source);
+    try flow_graph.addNode(root);
+
+    // Test nested type relationships
+    const outer = flow_graph.findNodeByName("Outer") orelse {
+        try testing.expect(false);
+        return;
+    };
+
+    var deps = try flow_graph.getFlowForNode(outer);
+    defer deps.deinit();
+
+    // Outer should depend on Inner and NestedType
+    var found_inner = false;
+    var found_nested = false;
+    for (deps.items) |node| {
+        if (std.mem.eql(u8, node.name, "Inner")) {
+            found_inner = true;
+        } else if (std.mem.eql(u8, node.name, "NestedType")) {
+            found_nested = true;
+        }
+    }
+    try testing.expect(found_inner);
+    try testing.expect(found_nested);
+}
+
+test "generic type flow" {
+    const allocator = testing.allocator;
+    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    defer ts_parser_impl.deinit();
+
+    var parser = parser_mod.Parser.init(allocator, ts_parser_impl, &typescript.interface);
+    defer parser.deinit();
+
+    var flow_graph = try Flow.init(allocator);
+    defer flow_graph.deinit();
+
+    const generic_source =
+        \\ interface Container<T> {
+        \\     data: T;
+        \\ }
+        \\ interface DataType {
+        \\     value: number;
+        \\ }
+        \\ class Implementation implements Container<DataType> {
+        \\     data: DataType;
+        \\ }
+    ;
+
+    const root = try parser.parse(generic_source);
+    try flow_graph.addNode(root);
+
+    const impl = flow_graph.findNodeByName("Implementation") orelse {
+        try testing.expect(false);
+        return;
+    };
+
+    var deps = try flow_graph.getFlowForNode(impl);
+    defer deps.deinit();
+
+    // Implementation should depend on both Container and DataType
+    var found_container = false;
+    var found_data_type = false;
+    for (deps.items) |node| {
+        if (std.mem.eql(u8, node.name, "Container")) {
+            found_container = true;
+        } else if (std.mem.eql(u8, node.name, "DataType")) {
+            found_data_type = true;
+        }
+    }
+    try testing.expect(found_container);
+    try testing.expect(found_data_type);
 }

@@ -1,7 +1,7 @@
 .{
     .name = "fuze",
     .version = "0.0.1",
-    .minimum_zig_version = "0.14.0-dev.2367+aa7d13846",
+    .minimum_zig_version = "0.14.0-dev.2851+b074fb7dd",
     .dependencies = .{
         .clap = .{
             .url = "git+https://github.com/Hejsil/zig-clap#560c8dd72ab25d556123846254040c5bf9ad3ba4",

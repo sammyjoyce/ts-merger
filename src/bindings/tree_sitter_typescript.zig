@@ -1,40 +1,52 @@
 const std = @import("std");
-const tree_sitter = @import("tree_sitter.zig");
+const tree_sitter = @import("./tree_sitter.zig");
 
-pub extern "c" fn tree_sitter_typescript() *const tree_sitter.Language;
+extern "c" fn tree_sitter_typescript() *const tree_sitter.Language;
 
-/// External scanner functions
-pub extern "c" fn tree_sitter_typescript_external_scanner_create() ?*anyopaque;
-pub extern "c" fn tree_sitter_typescript_external_scanner_destroy(payload: ?*anyopaque) void;
-pub extern "c" fn tree_sitter_typescript_external_scanner_serialize(payload: ?*anyopaque, buffer: [*]u8) u32;
-pub extern "c" fn tree_sitter_typescript_external_scanner_deserialize(payload: ?*anyopaque, buffer: [*]const u8, length: u32) void;
-pub extern "c" fn tree_sitter_typescript_external_scanner_scan(payload: ?*anyopaque, lexer: *tree_sitter.Scanner, valid_symbols: [*]const bool) bool;
+pub const Language = tree_sitter.Language;
+pub const Parser = tree_sitter.Parser;
+pub const Tree = tree_sitter.Tree;
+pub const Node = tree_sitter.Node;
+pub const TreeSitterError = tree_sitter.TreeSitterError;
 
-/// Token types for the external scanner
-pub const TokenType = enum(i32) {
-    AUTOMATIC_SEMICOLON,
-    TEMPLATE_CHARS,
-    TERNARY_QMARK,
-    HTML_COMMENT,
-    LOGICAL_OR,
-    ESCAPE_SEQUENCE,
-    NEWLINE,
-    INDENT,
-    DEDENT,
-    STRING_CONTENT,
-    COMMENT_CONTENT,
-    RAW_STRING_LITERAL,
-    REGEX_CONTENT,
-    REGEX_FLAGS,
-    JSX_TEXT,
-    NESTED_IDENTIFIER,
-    NESTED_TYPE_IDENTIFIER,
-    NESTED_NAMESPACE_IMPORT,
-    REGEX_PATTERN,
-    FUNCTION_SIGNATURE_AUTOMATIC_SEMICOLON,
-    ERROR_RECOVERY,
+pub const TypeScriptParser = struct {
+    parser: *Parser,
+    allocator: std.mem.Allocator,
+
+    pub fn init(allocator: std.mem.Allocator) !*TypeScriptParser {
+        const parser = try Parser_init();
+        errdefer tree_sitter.ts_parser_delete(parser);
+
+        if (!tree_sitter.ts_parser_set_language(parser, tree_sitter_typescript())) {
+            return error.LanguageError;
+        }
+
+        const self = try allocator.create(TypeScriptParser);
+        self.* = .{
+            .parser = parser,
+            .allocator = allocator,
+        };
+        return self;
+    }
+
+    pub fn deinit(self: *TypeScriptParser) void {
+        tree_sitter.ts_parser_delete(self.parser);
+        self.allocator.destroy(self);
+    }
+
+    pub fn parse(self: *TypeScriptParser, source: []const u8) !*Tree {
+        if (source.len == 0) return error.EmptySource;
+        if (source.len > std.math.maxInt(u32)) return error.SourceTooLarge;
+        const tree = tree_sitter.ts_parser_parse_string(self.parser, null, source.ptr, @intCast(source.len)) orelse return error.ParseError;
+        return tree;
+    }
 };
 
-pub fn language() *const tree_sitter.Language {
-    return tree_sitter_typescript();
+pub fn Parser_init() !*Parser {
+    return tree_sitter.ts_parser_new() orelse error.ParserInitFailed;
 }
+
+extern "c" fn ts_parser_new() ?*Parser;
+extern "c" fn ts_parser_delete(parser: *Parser) void;
+extern "c" fn ts_parser_set_language(parser: *Parser, language: *const Language) bool;
+extern "c" fn ts_parser_parse_string(parser: *Parser, old_tree: ?*Tree, string: [*]const u8, length: u32) ?*Tree;

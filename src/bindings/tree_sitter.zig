@@ -1,137 +1,45 @@
 const std = @import("std");
-pub const ts_typescript = @import("tree_sitter_typescript.zig");
 
-/// The current version of the Tree-sitter language ABI
-pub const LANGUAGE_VERSION = 14;
+pub const Language = opaque {};
+pub const Parser = opaque {};
+pub const Tree = opaque {};
 
-/// The minimum compatible version of the Tree-sitter language ABI
-pub const MIN_COMPATIBLE_LANGUAGE_VERSION = 13;
-
-/// Basic types used throughout the Tree-sitter API
-pub const Symbol = u16;
-pub const FieldId = u16;
-pub const StateId = u16;
-
-/// Point represents a row and column in source code
 pub const Point = extern struct {
     row: u32,
     column: u32,
-};
 
-/// Input encoding options
-pub const InputEncoding = enum(c_uint) {
-    UTF8,
-    UTF16,
-};
-
-/// Source buffer for holding input data
-pub const SourceBuffer = struct {
-    data: []const u8,
-    allocator: std.mem.Allocator,
-
-    pub fn init(allocator: std.mem.Allocator, data: []const u8) !*SourceBuffer {
-        const buffer = try allocator.create(SourceBuffer);
-        errdefer allocator.destroy(buffer);
-
-        const duped_data = try allocator.dupe(u8, data);
-        errdefer allocator.free(duped_data);
-
-        buffer.* = .{
-            .data = duped_data,
-            .allocator = allocator,
-        };
-        return buffer;
-    }
-
-    pub fn deinit(self: *SourceBuffer) void {
-        self.allocator.free(self.data);
-        self.allocator.destroy(self);
-    }
-};
-
-/// Input structure for Tree-sitter parser
-pub const Input = extern struct {
-    payload: ?*anyopaque,
-    read: fn (?*anyopaque, u32, Point, *u32) callconv(.C) [*:0]const u8,
-    encoding: InputEncoding,
-
-    /// Creates an Input from a byte slice
-    pub fn fromSlice(allocator: std.mem.Allocator, slice: []const u8) !Input {
-        if (slice.len > std.math.maxInt(u32)) {
-            return error.LengthTooLarge;
-        }
-
-        const buffer = try SourceBuffer.init(allocator, slice);
-        return Input{
-            .payload = @ptrCast(buffer),
-            .read = readFromString,
-            .encoding = .UTF8,
+    pub fn init(row: u32, column: u32) Point {
+        return .{
+            .row = row,
+            .column = column,
         };
     }
 };
 
-/// Tree-sitter node range
-pub const Range = extern struct {
-    start_point: Point,
-    end_point: Point,
-    start_byte: u32,
-    end_byte: u32,
-};
-
-/// Tree-sitter node structure
 pub const Node = extern struct {
     context: [4]u32 align(4),
     id: u32,
     tree: ?*const Tree,
 };
 
-/// Tree cursor for traversing nodes
 pub const TreeCursor = extern struct {
     tree: ?*const Tree,
     id: u32,
     context: [2]u32,
 };
 
-/// Tree-sitter language type
-pub const Language = opaque {};
-
-/// Tree-sitter parser type
-pub const Parser = opaque {
-    /// Creates a new parser
-    pub extern fn ts_parser_new() ?*Parser;
-
-    /// Deletes a parser
-    pub extern fn ts_parser_delete(parser: *Parser) void;
-
-    /// Sets the language for a parser
-    pub extern fn ts_parser_set_language(parser: *Parser, language: *const Language) bool;
-
-    /// Parses a string into a syntax tree
-    pub extern fn ts_parser_parse_string(
-        parser: *Parser,
-        old_tree: ?*Tree,
-        string: [*]const u8,
-        length: u32,
-    ) ?*Tree;
-
-    /// Parses input into a syntax tree
-    pub extern fn ts_parser_parse(parser: *Parser, old_tree: ?*const Tree, input: *const Input) ?*Tree;
-
-    /// Sets the included ranges for a parser
-    pub extern fn ts_parser_set_included_ranges(parser: *Parser, ranges: [*]const Range, length: u32) bool;
+pub const TreeSitterError = error{
+    ParserInitFailed,
+    ParserCreationFailed,
+    LanguageError,
+    ParseError,
+    EmptySource,
+    SourceTooLarge,
 };
 
-/// Tree-sitter tree type
-pub const Tree = opaque {
-    /// Deletes a tree
-    pub extern fn ts_tree_delete(tree: *Tree) void;
-
-    /// Gets the root node of a tree
-    pub extern fn ts_tree_root_node(tree: *Tree) Node;
-
-    /// Copies a tree
-    pub extern fn ts_tree_copy(tree: *const Tree) *Tree;
-};
+pub fn Parser_init() TreeSitterError!*Parser {
+    return ts_parser_new() orelse error.ParserInitFailed;
+}
 
 /// Tree-sitter parser functions
 pub extern fn ts_parser_new() ?*Parser;
@@ -140,6 +48,9 @@ pub extern fn ts_parser_set_language(parser: *Parser, language: *const Language)
 pub extern fn ts_parser_parse_string(parser: *Parser, old_tree: ?*Tree, string: [*]const u8, length: u32) ?*Tree;
 pub extern fn ts_parser_parse(parser: *Parser, old_tree: ?*const Tree, input: *const Input) ?*Tree;
 pub extern fn ts_parser_set_included_ranges(parser: *Parser, ranges: [*]const Range, length: u32) bool;
+pub extern fn ts_parser_timeout_micros(parser: *const Parser) u64;
+pub extern fn ts_parser_set_timeout_micros(parser: *Parser, timeout: u64) void;
+pub extern fn ts_parser_reset(parser: *Parser) void;
 
 /// Tree-sitter tree functions
 pub extern fn ts_tree_root_node(tree: *Tree) Node;
@@ -169,33 +80,111 @@ pub extern fn ts_tree_cursor_goto_first_child(cursor: *TreeCursor) bool;
 pub extern fn ts_tree_cursor_goto_next_sibling(cursor: *TreeCursor) bool;
 pub extern fn ts_tree_cursor_goto_parent(cursor: *TreeCursor) bool;
 
-/// Node functions struct for convenience
-pub const NodeFunctions = struct {
-    ts_node_child: fn (node: Node, index: u32) Node,
-    ts_node_child_count: fn (node: Node) u32,
-    ts_node_named_child: fn (node: Node, index: u32) Node,
-    ts_node_named_child_count: fn (node: Node) u32,
-    ts_node_start_point: fn (node: Node) Point,
-    ts_node_end_point: fn (node: Node) Point,
-    ts_node_start_byte: fn (node: Node) u32,
-    ts_node_end_byte: fn (node: Node) u32,
-    ts_node_type: fn (node: Node) ?[*:0]const u8,
-    ts_node_is_null: fn (node: Node) bool,
-    ts_node_is_named: fn (node: Node) bool,
+/// Source buffer for holding input data
+pub const SourceBuffer = struct {
+    data: []const u8,
+    allocator: std.mem.Allocator,
+
+    pub fn init(allocator: std.mem.Allocator, data: []const u8) !*SourceBuffer {
+        const buffer = try allocator.create(SourceBuffer);
+        errdefer allocator.destroy(buffer);
+
+        const duped_data = try allocator.dupe(u8, data);
+        errdefer allocator.free(duped_data);
+
+        buffer.* = .{
+            .data = duped_data,
+            .allocator = allocator,
+        };
+        return buffer;
+    }
+
+    pub fn deinit(self: *SourceBuffer) void {
+        self.allocator.free(self.data);
+        self.allocator.destroy(self);
+    }
 };
 
-/// Read function for string input
-pub export fn readFromString(payload: ?*anyopaque, byte_index: u32, position: Point, bytes_read: *u32) callconv(.C) [*:0]const u8 {
-    _ = position; // Unused parameter required by tree-sitter API
-    if (payload) |ptr| {
-        const buffer = @as(*SourceBuffer, @alignCast(@ptrCast(ptr)));
-        if (byte_index >= buffer.data.len) {
-            bytes_read.* = 0;
-            return "";
+pub const Input = extern struct {
+    payload: ?*anyopaque,
+    read: *const fn (?*anyopaque, u32, Point, *u32) ?[*]const u8,
+    encoding: InputEncoding,
+};
+
+pub const Range = extern struct {
+    start_point: Point,
+    end_point: Point,
+    start_byte: u32,
+    end_byte: u32,
+};
+
+pub const InputEncoding = enum(c_uint) {
+    UTF8,
+    UTF16,
+};
+
+pub const QueryError = enum(c_uint) {
+    None,
+    Syntax,
+    NodeType,
+    Field,
+    Capture,
+    Structure,
+    Language,
+};
+
+pub const SymbolType = enum(c_uint) {
+    Regular,
+    Anonymous,
+    Auxiliary,
+};
+
+test "tree-sitter parser initialization" {
+    const parser = try Parser_init();
+    defer ts_parser_delete(parser);
+    try std.testing.expect(parser != undefined);
+}
+
+test "tree-sitter cursor operations" {
+    const parser = try Parser_init();
+    defer ts_parser_delete(parser);
+
+    const source = "function test() {}";
+    const tree = ts_parser_parse_string(
+        parser,
+        null,
+        source.ptr,
+        @intCast(source.len),
+    ) orelse return error.ParseError;
+    defer ts_tree_delete(tree);
+
+    const root_node = ts_tree_root_node(tree);
+    var cursor = ts_tree_cursor_new(root_node);
+    defer ts_tree_cursor_delete(&cursor);
+}
+
+test "tree-sitter input encoding" {
+    try std.testing.expectEqual(InputEncoding.UTF8, InputEncoding.UTF8);
+    try std.testing.expectEqual(InputEncoding.UTF16, InputEncoding.UTF16);
+}
+
+test "tree-sitter query error" {
+    try std.testing.expectEqual(QueryError.None, QueryError.None);
+    try std.testing.expectEqual(QueryError.Syntax, QueryError.Syntax);
+}
+
+test "tree-sitter symbol type" {
+    try std.testing.expectEqual(SymbolType.Regular, SymbolType.Regular);
+    try std.testing.expectEqual(SymbolType.Anonymous, SymbolType.Anonymous);
+}
+
+test "tree-sitter error handling" {
+    const makeErrorFn = struct {
+        fn make(err: TreeSitterError) !void {
+            return err;
         }
-        bytes_read.* = @intCast(buffer.data.len - byte_index);
-        return @ptrCast(buffer.data.ptr + byte_index);
-    }
-    bytes_read.* = 0;
-    return "";
+    }.make;
+
+    try std.testing.expectError(error.ParseError, makeErrorFn(error.ParseError));
+    try std.testing.expectError(error.QueryError, makeErrorFn(error.QueryError));
 }

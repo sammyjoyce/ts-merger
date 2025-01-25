@@ -34,97 +34,12 @@ pub const Location = struct {
     }
 };
 
-/// Base AST node structure that represents any node in the syntax tree
-pub const Node = struct {
-    kind: NodeKind,
-    value: []const u8,
-    location: Location,
-    dependencies: std.ArrayList(*Node),
-    references: std.ArrayList(*Node),
-    allocator: std.mem.Allocator,
-
-    pub fn init(allocator: std.mem.Allocator) !*Node {
-        const node = try allocator.create(Node);
-        errdefer allocator.destroy(node);
-
-        node.* = .{
-            .kind = .{ .kind = .Unknown, .source = null },
-            .value = null,
-            .children = std.ArrayList(*Node).init(allocator),
-            .allocator = allocator,
-        };
-        return node;
-    }
-
-    pub fn deinit(self: *Node) void {
-        // Clean up kind source if present
-        if (self.kind.source) |source| {
-            self.allocator.free(source);
-        }
-
-        // Clean up value if present
-        if (self.value) |value| {
-            self.allocator.free(value);
-        }
-
-        // Clean up children recursively
-        for (self.children.items) |child| {
-            child.deinit();
-            self.allocator.destroy(child);
-        }
-        self.children.deinit();
-    }
-
-    pub fn clone(self: *const Node, allocator: std.mem.Allocator) !*Node {
-        var new_node = try Node.init(allocator);
-        errdefer new_node.deinit();
-
-        // Clone kind
-        new_node.kind.kind = self.kind.kind;
-        if (self.kind.source) |source| {
-            new_node.kind.source = try allocator.dupe(u8, source);
-        } else {
-            new_node.kind.source = null;
-        }
-
-        // Clone value if present
-        if (self.value) |value| {
-            new_node.value = try allocator.dupe(u8, value);
-        }
-
-        // Clone children recursively
-        try new_node.children.ensureTotalCapacity(self.children.items.len);
-        for (self.children.items) |child| {
-            const cloned_child = try child.clone(allocator);
-            errdefer cloned_child.deinit();
-            try new_node.children.append(cloned_child);
-        }
-
-        return new_node;
-    }
-
-    pub fn setValue(self: *Node, value: []const u8) !void {
-        if (self.value) |old_value| {
-            self.allocator.free(old_value);
-        }
-        self.value = try self.allocator.dupe(u8, value);
-    }
-
-    pub fn addChild(self: *Node, child: *Node) !void {
-        try self.children.append(child);
-    }
-
-    pub fn isLeafNode(self: *const Node) bool {
-        return self.children.items.len == 0;
-    }
-};
-
 pub const NodeKind = struct {
     kind: Kind,
     source: ?[]const u8,
 
     pub const Kind = enum {
-        Unknown,
+        unknown,
         Program,
         ExportDecl,
         ImportDecl,
@@ -170,7 +85,107 @@ pub const NodeKind = struct {
         RightBrace,
         Pipe,
         TripleEquals,
+        class,
     };
+};
+
+/// Base AST node structure that represents any node in the syntax tree
+pub const Node = struct {
+    kind: NodeKind,
+    value: ?[]const u8,
+    children: std.ArrayList(*Node),
+    dependencies: std.ArrayList(*Node),
+    dependents: std.ArrayList(*Node),
+    name: []const u8,
+    allocator: std.mem.Allocator,
+
+    pub fn init(allocator: std.mem.Allocator) !*Node {
+        const node = try allocator.create(Node);
+        node.* = .{
+            .kind = .{ .kind = .unknown, .source = null },
+            .value = null,
+            .children = std.ArrayList(*Node).init(allocator),
+            .dependencies = std.ArrayList(*Node).init(allocator),
+            .dependents = std.ArrayList(*Node).init(allocator),
+            .name = "",
+            .allocator = allocator,
+        };
+        return node;
+    }
+
+    pub fn deinit(self: *Node) void {
+        // Clean up kind source if present
+        if (self.kind.source) |source| {
+            self.allocator.free(source);
+        }
+
+        // Clean up value if present
+        if (self.value) |value| {
+            self.allocator.free(value);
+        }
+
+        // Clean up children recursively
+        for (self.children.items) |child| {
+            child.deinit();
+            self.allocator.destroy(child);
+        }
+        self.children.deinit();
+
+        // Clean up dependencies
+        self.dependencies.deinit();
+
+        // Clean up dependents
+        self.dependents.deinit();
+
+        // Clean up name
+        self.allocator.free(self.name);
+    }
+
+    pub fn clone(self: *const Node, allocator: std.mem.Allocator) !*Node {
+        var new_node = try Node.init(allocator);
+        errdefer new_node.deinit();
+
+        // Clone kind
+        new_node.kind.kind = self.kind.kind;
+        if (self.kind.source) |source| {
+            new_node.kind.source = try allocator.dupe(u8, source);
+        } else {
+            new_node.kind.source = null;
+        }
+
+        // Clone value if present
+        if (self.value) |value| {
+            new_node.value = try allocator.dupe(u8, value);
+        }
+
+        // Clone children recursively
+        try new_node.children.ensureTotalCapacity(self.children.items.len);
+        for (self.children.items) |child| {
+            const cloned_child = try child.clone(allocator);
+            errdefer cloned_child.deinit();
+            try new_node.children.append(cloned_child);
+        }
+
+        // Clone name
+        new_node.name = try allocator.dupe(u8, self.name);
+
+        return new_node;
+    }
+
+    pub fn setValue(self: *Node, value: []const u8) !void {
+        if (self.value) |old_value| {
+            self.allocator.free(old_value);
+        }
+        self.value = try self.allocator.dupe(u8, value);
+    }
+
+    pub fn addChild(self: *Node, child: *Node) !void {
+        try self.children.append(child);
+    }
+
+    pub fn isLeafNode(self: *const Node) bool {
+        return self.children.items.len == 0;
+    }
 };
 
 pub fn nodeKindFromString(kind_str: []const u8) !NodeKind.Kind {
@@ -274,7 +289,6 @@ pub const CodeFlowNode = struct {
     }
 
     pub fn addMethod(self: *CodeFlowNode, method_name: []const u8) !void {
-        const std = @import("std");
         const method_node = try self.dependencies.allocator.create(CodeFlowNode);
         const owned_name = try self.dependencies.allocator.dupeZ(u8, method_name);
 
@@ -302,3 +316,45 @@ pub const CodeFlowNode = struct {
         try dependency.references.append(self);
     }
 };
+
+const testing = std.testing;
+
+test "create and manipulate FlowNode" {
+    const allocator = testing.allocator;
+
+    var node = try FlowNode.init(allocator, "TestNode", .class);
+    defer node.deinit(allocator);
+
+    try testing.expectEqualStrings("TestNode", node.name);
+    try testing.expectEqual(NodeKind.class, node.kind);
+    try testing.expectEqual(@as(usize, 0), node.dependencies.items.len);
+    try testing.expectEqual(@as(usize, 0), node.references.items.len);
+}
+
+test "add dependencies to FlowNode" {
+    const allocator = testing.allocator;
+
+    var node1 = try FlowNode.init(allocator, "Node1", .class);
+    defer node1.deinit(allocator);
+
+    var node2 = try FlowNode.init(allocator, "Node2", .interface);
+    defer node2.deinit(allocator);
+
+    try node1.dependencies.append(node2);
+    try testing.expectEqual(@as(usize, 1), node1.dependencies.items.len);
+    try testing.expectEqual(node2, node1.dependencies.items[0]);
+}
+
+test "add references to FlowNode" {
+    const allocator = testing.allocator;
+
+    var node1 = try FlowNode.init(allocator, "Node1", .class);
+    defer node1.deinit(allocator);
+
+    var node2 = try FlowNode.init(allocator, "Node2", .interface);
+    defer node2.deinit(allocator);
+
+    try node1.references.append(node2);
+    try testing.expectEqual(@as(usize, 1), node1.references.items.len);
+    try testing.expectEqual(node2, node1.references.items[0]);
+}
