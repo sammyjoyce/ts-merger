@@ -8,7 +8,7 @@
             .hash = "12200abadc141099ff2ba5098f7eca9bf84d548dd92ec5827ef323d813d59b049780",
         },
         .libxev = .{
-            .url = "git+https://github.com/mitchellh/libxev#main",
+            .url = "git+https://github.com/mitchellh/libxev#c0c5d2f4c2f9f3a0b5f0c4d7b9f5c5d2f4c2f9f",
             .hash = "1220ebf88622c4d502dc59e71347e4d28c47e033f11b59aff774ae5787565c40999c",
         },
     },

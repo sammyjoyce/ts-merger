@@ -143,7 +143,7 @@ pub const SymbolType = enum(c_uint) {
 test "tree-sitter parser initialization" {
     const parser = try Parser_init();
     defer ts_parser_delete(parser);
-    try std.testing.expect(parser != undefined);
+    try std.testing.expect(@intFromPtr(parser) != 0);
 }
 
 test "tree-sitter cursor operations" {
@@ -151,12 +151,12 @@ test "tree-sitter cursor operations" {
     defer ts_parser_delete(parser);
 
     const source = "function test() {}";
-    const tree = ts_parser_parse_string(
+    const tree = try ts_parser_parse_string(
         parser,
         null,
         source.ptr,
         @intCast(source.len),
-    ) orelse return error.ParseError;
+    );
     defer ts_tree_delete(tree);
 
     const root_node = ts_tree_root_node(tree);

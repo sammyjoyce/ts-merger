@@ -20,18 +20,18 @@ pub const WatchCallback = *const fn (event: WatchEvent) void;
 /// File system watcher
 pub const Watcher = struct {
     allocator: std.mem.Allocator,
-    loop: *xev.Loop,
-    comp: xev.Completion,
+    loop: *libxev.Loop,
+    comp: libxev.Completion,
     callback: ?WatchCallback,
-    watched: std.StringHashMap(*xev.FileEvent),
+    watched: std.StringHashMap(*libxev.FileEvent),
 
     pub fn init(allocator: std.mem.Allocator) !Watcher {
         return Watcher{
             .allocator = allocator,
-            .loop = try xev.Loop.init(.{}),
+            .loop = try libxev.Loop.init(.{}),
             .comp = undefined,
             .callback = null,
-            .watched = std.StringHashMap(*xev.FileEvent).init(allocator),
+            .watched = std.StringHashMap(*libxev.FileEvent).init(allocator),
         };
     }
 
@@ -47,9 +47,9 @@ pub const Watcher = struct {
     }
 
     pub fn watch(self: *Watcher, path: []const u8) !void {
-        const w = try self.allocator.create(xev.FileEvent);
+        const w = try self.allocator.create(libxev.FileEvent);
         errdefer self.allocator.destroy(w);
-        w.* = try xev.FileEvent.init();
+        w.* = try libxev.FileEvent.init();
 
         const path_copy = try self.allocator.dupe(u8, path);
         errdefer self.allocator.free(path_copy);
@@ -99,10 +99,10 @@ pub const Watcher = struct {
 
     fn handleEvent(
         userdata: ?*anyopaque,
-        loop: *xev.Loop,
-        comp: *xev.Completion,
-        res: xev.FileEvent.Result,
-    ) xev.CallbackAction {
+        loop: *libxev.Loop,
+        comp: *libxev.Completion,
+        res: libxev.FileEvent.Result,
+    ) libxev.CallbackAction {
         _ = loop;
         _ = comp;
         const self = @as(*Watcher, @ptrCast(@alignCast(userdata.?)));

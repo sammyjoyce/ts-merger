@@ -26,6 +26,22 @@ fn addTests(
     // This step is the global container for all tests.
     const test_step = b.step("test", "Run all tests");
 
+    // Add libxev dependency and apply patch
+    const libxev_dep = b.dependency("libxev", .{});
+
+    // Apply the patch to libxev before building
+    const patch_step = b.addSystemCommand(&[_][]const u8{
+        "patch",
+        "-p1",
+        "--directory",
+        b.dependency("libxev", .{}).path().getPath(b),
+        "--input",
+        "libxev.patch",
+    });
+
+    const libxev_module = libxev_dep.module("libxev");
+    libxev_module.step.dependOn(&patch_step.step);
+
     // Create modules needed for tests
     const ast_types_module = b.createModule(.{
         .root_source_file = .{ .cwd_relative = "src/core/ast/ast_types.zig" },
@@ -94,7 +110,9 @@ fn addTests(
         .{
             .name = "watcher",
             .path = "src/watcher/mod.zig",
-            .modules = &.{},
+            .modules = &.{
+                .{ .name = "libxev", .module = libxev_module },
+            },
             .needs_cpp = true,
         },
     };
