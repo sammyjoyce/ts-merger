@@ -26,23 +26,19 @@ fn addTests(
     // This step is the global container for all tests.
     const test_step = b.step("test", "Run all tests");
 
-    // Add libxev dependency
-    const libxev_dep = b.dependency("libxev", .{});
-
-    // Create patch step using dependency path
-    const patch_step = b.addSystemCommand(&[_][]const u8{
-        "patch",
-        "-p1",
-        "--directory",
-        libxev_dep.path("").getPath(b),
-        "--input",
-        "libxev.patch",
+    // Add libxev dependency with patch
+    const libxev_dep = b.dependency("libxev", .{
+        .patches = &.{
+            .{
+                .path = "libxev.patch",
+                .strip = 1,
+            },
+        },
     });
 
-    // Make libxev module depend on the patch step
+    // Get libxev module and compile artifact
     const libxev_module = libxev_dep.module("libxev");
     const libxev_compile = libxev_dep.artifact("xev");
-    libxev_compile.step.dependOn(&patch_step.step);
 
     // Create modules needed for tests
     const ast_types_module = b.createModule(.{
