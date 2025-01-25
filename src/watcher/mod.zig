@@ -193,14 +193,13 @@ test "watcher - event handling - modify" {
 
     try w.watch(path);
 
-    // Add proper synchronization
-    var done = std.Thread.ResetEvent{};
+    var done = std.atomic.Atomic(bool).init(false);
     defer done.deinit();
 
     w.setCallback(struct {
         fn cb(event: WatchEvent) void {
             TestContext.onEvent(event);
-            done.set();
+            done.store(true, .SeqCst);
         }
     }.cb);
 
@@ -208,8 +207,8 @@ test "watcher - event handling - modify" {
 
     try tmp_dir.dir.writeFile("test.ts", "test content");
 
-    // Wait for event or timeout
-    try testing.expect(try done.wait(std.time.ns_per_s * 2));
+    while (!done.load(.SeqCst)) {}
+    
     try testing.expect(TestContext.findEvent(.modify));
 
     w.stop();
