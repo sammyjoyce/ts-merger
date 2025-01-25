@@ -26,19 +26,8 @@ fn addTests(
     // This step is the global container for all tests.
     const test_step = b.step("test", "Run all tests");
 
-    // Add libxev dependency with patch
-    const libxev_dep = b.dependency("libxev", .{
-        .patches = &.{
-            .{
-                .path = "libxev.patch",
-                .strip = 0, // Critical fix - patch was created from repo root
-            },
-        },
-        .version = .{ .git = .{
-            .url = "https://github.com/mitchellh/libxev",
-            .hash = "1220ebf88622c4d502dc59e71347e4d28c47e033f11b59aff774ae5787565c40",
-        } },
-    });
+    // Get libxev dependency
+    const libxev_dep = b.dependency("libxev", .{});
 
     // Get libxev module and compile artifact
     const libxev_module = libxev_dep.module("libxev");
