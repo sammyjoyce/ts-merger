@@ -39,8 +39,10 @@ fn addTests(
         "libxev.patch",
     });
 
-    // Get libxev module
+    // Make libxev module depend on the patch step
     const libxev_module = libxev_dep.module("libxev");
+    const libxev_compile = libxev_dep.artifact("xev");
+    libxev_compile.step.dependOn(&patch_step.step);
 
     // Create modules needed for tests
     const ast_types_module = b.createModule(.{
@@ -124,7 +126,6 @@ fn addTests(
         // Add module imports
         for (test_info.modules) |mod| {
             test_exe.root_module.addImport(mod.name, mod.module);
-            test_exe.step.dependOn(&patch_step.step); // Make test depend on patch
         }
 
         // Link required libraries
