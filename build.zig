@@ -164,12 +164,8 @@ pub fn build(b: *std.Build) !void {
     defer b.allocator.free(ts_lib_c);
 
     tree_sitter.addCSourceFiles(.{
-        .files = &.{
-            .{
-                .file = .{ .cwd_relative = ts_lib_c },
-                .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
-            },
-        },
+        .files = &.{ts_lib_c},
+        .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
     });
     tree_sitter.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
 
@@ -183,23 +179,15 @@ pub fn build(b: *std.Build) !void {
     const ts_parser_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "parser.c" });
     defer b.allocator.free(ts_parser_c);
 
-    const ts_scanner_cc = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "scanner.c" });
-    defer b.allocator.free(ts_scanner_cc);
+    const ts_scanner_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "scanner.c" });
+    defer b.allocator.free(ts_scanner_c);
 
     const ts_include_path = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src" });
     defer b.allocator.free(ts_include_path);
 
     tree_sitter_typescript.addCSourceFiles(.{
-        .files = &.{
-            .{
-                .file = .{ .cwd_relative = ts_parser_c },
-                .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
-            },
-            .{
-                .file = .{ .cwd_relative = ts_scanner_cc },
-                .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
-            },
-        },
+        .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
+        .files = &.{ ts_parser_c, ts_scanner_c },
     });
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = ts_include_path });
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
@@ -229,8 +217,8 @@ pub fn build(b: *std.Build) !void {
     exe.linkLibrary(tree_sitter_typescript);
     exe.addObjectFile(.{ .cwd_relative = ts_lib_c });
     exe.addObjectFile(.{ .cwd_relative = ts_parser_c });
-    exe.addObjectFile(.{ .cwd_relative = ts_scanner_cc });
-    exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+    exe.addObjectFile(.{ .cwd_relative = ts_scanner_c });
+    // exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
 
     const run_cmd = b.addRunArtifact(exe);
     if (b.args) |args| {

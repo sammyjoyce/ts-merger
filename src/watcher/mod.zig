@@ -208,7 +208,7 @@ test "watcher - event handling - modify" {
     try tmp_dir.dir.writeFile("test.ts", "test content");
 
     while (!done.load(.SeqCst)) {}
-    
+
     try testing.expect(TestContext.findEvent(.modify));
 
     w.stop();
