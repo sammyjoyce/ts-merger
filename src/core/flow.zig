@@ -1,5 +1,8 @@
 const std = @import("std");
+const tree_sitter = @import("tree_sitter");
+const tree_sitter_typescript = @import("tree_sitter_typescript");
 const ast_types = @import("ast_types");
+
 const parser_typescript = @import("typescript");
 const Logger = @import("../utils/log.zig").Logger;
 

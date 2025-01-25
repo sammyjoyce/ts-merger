@@ -1,5 +1,6 @@
 /// Provides AST types and structures for representing code elements.
 const std = @import("std");
+const tree_sitter = @import("tree_sitter");
 
 /// Represents a position in a source file with line and character information.
 pub const Position = struct {
@@ -33,9 +34,6 @@ pub const Location = struct {
         allocator.free(self.file_path);
     }
 };
-
-const std = @import("std");
-const tree_sitter = @import("tree_sitter");
 
 pub const NodeKind = struct {
     kind: Kind,
@@ -165,7 +163,7 @@ test "node children" {
     defer node1.deinit();
     defer allocator.destroy(node1);
 
-    var child = try Node.init(allocator, "Child", .{ .kind = .method_definition });
+    const child = try Node.init(allocator, "Child", .{ .kind = .method_definition });
     try node1.children.append(child);
 
     try std.testing.expect(node1.children.items.len == 1);
@@ -252,25 +250,25 @@ pub const CodeFlowNode = struct {
 
 const testing = std.testing;
 
-test "create and manipulate FlowNode" {
+test "create and manipulate CodeFlowNode" {
     const allocator = testing.allocator;
 
-    var node = try FlowNode.init(allocator, "TestNode", .class);
+    var node = try CodeFlowNode.init(allocator, "TestNode", .{ .kind = .class });
     defer node.deinit(allocator);
 
     try testing.expectEqualStrings("TestNode", node.name);
-    try testing.expectEqual(NodeKind.class, node.kind);
+    try testing.expectEqual(NodeKind.Kind.class, node.kind.kind);
     try testing.expectEqual(@as(usize, 0), node.dependencies.items.len);
     try testing.expectEqual(@as(usize, 0), node.references.items.len);
 }
 
-test "add dependencies to FlowNode" {
+test "add dependencies to CodeFlowNode" {
     const allocator = testing.allocator;
 
-    var node1 = try FlowNode.init(allocator, "Node1", .class);
+    var node1 = try CodeFlowNode.init(allocator, "Node1", .{ .kind = .class });
     defer node1.deinit(allocator);
 
-    var node2 = try FlowNode.init(allocator, "Node2", .interface);
+    var node2 = try CodeFlowNode.init(allocator, "Node2", .{ .kind = .interface });
     defer node2.deinit(allocator);
 
     try node1.dependencies.append(node2);
@@ -278,13 +276,13 @@ test "add dependencies to FlowNode" {
     try testing.expectEqual(node2, node1.dependencies.items[0]);
 }
 
-test "add references to FlowNode" {
+test "add references to CodeFlowNode" {
     const allocator = testing.allocator;
 
-    var node1 = try FlowNode.init(allocator, "Node1", .class);
+    var node1 = try CodeFlowNode.init(allocator, "Node1", .{ .kind = .class });
     defer node1.deinit(allocator);
 
-    var node2 = try FlowNode.init(allocator, "Node2", .interface);
+    var node2 = try CodeFlowNode.init(allocator, "Node2", .{ .kind = .interface });
     defer node2.deinit(allocator);
 
     try node1.references.append(node2);

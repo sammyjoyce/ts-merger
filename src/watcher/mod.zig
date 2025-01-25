@@ -1,5 +1,5 @@
-const xev = @import("xev");
 const std = @import("std");
+const libxev = @import("libxev");
 
 /// Represents a file system event
 pub const WatchEvent = struct {

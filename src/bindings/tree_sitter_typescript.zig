@@ -1,5 +1,5 @@
 const std = @import("std");
-const tree_sitter = @import("./tree_sitter.zig");
+const tree_sitter = @import("tree_sitter");
 
 extern "c" fn tree_sitter_typescript() *const tree_sitter.Language;
 
