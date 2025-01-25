@@ -120,7 +120,6 @@ fn addTests(
         test_exe.linkLibrary(options.tree_sitter_lib);
         if (test_info.needs_cpp) {
             test_exe.linkLibrary(options.tree_sitter_typescript_lib);
-            test_exe.linkLibCpp();
         }
         test_exe.linkLibC();
 
@@ -164,9 +163,13 @@ pub fn build(b: *std.Build) !void {
     const ts_lib_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_path, "lib", "src", "lib.c" });
     defer b.allocator.free(ts_lib_c);
 
-    tree_sitter.addCSourceFile(.{
-        .file = .{ .cwd_relative = ts_lib_c },
-        .flags = &.{ "-std=c99", "-fPIC" },
+    tree_sitter.addCSourceFiles(.{
+        .files = &.{
+            .{
+                .file = .{ .cwd_relative = ts_lib_c },
+                .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
+            },
+        },
     });
     tree_sitter.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
 
@@ -186,13 +189,17 @@ pub fn build(b: *std.Build) !void {
     const ts_include_path = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src" });
     defer b.allocator.free(ts_include_path);
 
-    tree_sitter_typescript.addCSourceFile(.{
-        .file = .{ .cwd_relative = ts_parser_c },
-        .flags = &.{ "-std=c99", "-fPIC" },
-    });
-    tree_sitter_typescript.addCSourceFile(.{
-        .file = .{ .cwd_relative = ts_scanner_cc },
-        .flags = &.{ "-std=c99", "-fPIC" },
+    tree_sitter_typescript.addCSourceFiles(.{
+        .files = &.{
+            .{
+                .file = .{ .cwd_relative = ts_parser_c },
+                .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
+            },
+            .{
+                .file = .{ .cwd_relative = ts_scanner_cc },
+                .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
+            },
+        },
     });
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = ts_include_path });
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
@@ -223,7 +230,6 @@ pub fn build(b: *std.Build) !void {
     exe.addObjectFile(.{ .cwd_relative = ts_lib_c });
     exe.addObjectFile(.{ .cwd_relative = ts_parser_c });
     exe.addObjectFile(.{ .cwd_relative = ts_scanner_cc });
-    exe.linkLibCpp();
     exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
 
     const run_cmd = b.addRunArtifact(exe);
