@@ -29,9 +29,8 @@ fn addTests(
     // Get libxev dependency
     const libxev_dep = b.dependency("libxev", .{});
 
-    // Get libxev module and compile artifact
+    // Get libxev module
     const libxev_module = libxev_dep.module("libxev");
-    const libxev_compile = libxev_dep.artifact("xev");
 
     // Create modules needed for tests
     const ast_types_module = b.createModule(.{
@@ -162,13 +161,6 @@ pub fn build(b: *std.Build) !void {
         .optimize = mode,
     });
 
-    // Possibly clone the tree-sitter repo if absent
-    // Only clone if directory doesn't exist
-    if (!dirExists(b.allocator, tree_sitter_path)) {
-        const git_clone_ts = b.addSystemCommand(&.{ "git", "clone", "--depth=1", "https://github.com/tree-sitter/tree-sitter.git", tree_sitter_path });
-        tree_sitter.step.dependOn(&git_clone_ts.step);
-    }
-
     const ts_lib_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_path, "lib", "src", "lib.c" });
     defer b.allocator.free(ts_lib_c);
 
@@ -184,12 +176,6 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = mode,
     });
-
-    // Only clone if directory doesn't exist
-    if (!dirExists(b.allocator, tree_sitter_ts_path)) {
-        const git_clone_ts_typescript = b.addSystemCommand(&.{ "git", "clone", "--depth=1", "https://github.com/tree-sitter/tree-sitter-typescript.git", tree_sitter_ts_path });
-        tree_sitter_typescript.step.dependOn(&git_clone_ts_typescript.step);
-    }
 
     const ts_parser_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "parser.c" });
     defer b.allocator.free(ts_parser_c);

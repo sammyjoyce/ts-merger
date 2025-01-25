@@ -15,7 +15,5 @@
         },
         .tree_sitter_typescript = .{ .path = "./pkg/tree-sitter-typescript" },
     },
-    .paths = .{
-        "./src",
-    },
+    .paths = .{""},
 }
