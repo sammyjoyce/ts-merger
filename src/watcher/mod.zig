@@ -192,15 +192,24 @@ test "watcher - event handling - modify" {
     defer allocator.free(path);
 
     try w.watch(path);
-    w.setCallback(TestContext.onEvent);
-    try w.start();
 
-    std.time.sleep(WATCHER_INIT_WAIT_MS * std.time.ns_per_ms);
+    // Add proper synchronization
+    var done = std.Thread.ResetEvent{};
+    defer done.deinit();
+
+    w.setCallback(struct {
+        fn cb(event: WatchEvent) void {
+            TestContext.onEvent(event);
+            done.set();
+        }
+    }.cb);
+
+    try w.start();
 
     try tmp_dir.dir.writeFile("test.ts", "test content");
 
-    std.time.sleep(EVENT_WAIT_MS * std.time.ns_per_ms);
-
+    // Wait for event or timeout
+    try testing.expect(try done.wait(std.time.ns_per_s * 2));
     try testing.expect(TestContext.findEvent(.modify));
 
     w.stop();
