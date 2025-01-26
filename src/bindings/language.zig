@@ -59,7 +59,7 @@ pub const LanguageRegistry = struct {
 
     fn detectByExtension(self: *const LanguageRegistry, filename: []const u8) ?*const LanguageMetadata {
         if (std.mem.lastIndexOfScalar(u8, filename, '.')) |dot| {
-            const ext = filename[dot+1..];
+            const ext = filename[dot + 1 ..];
             for (self.languages.items) |*lang| {
                 for (lang.extensions) |lang_ext| {
                     if (std.mem.eql(u8, ext, lang_ext)) return lang;

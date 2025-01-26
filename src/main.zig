@@ -60,7 +60,7 @@ fn mergeCommand(allocator: std.mem.Allocator, config: @import("commands/cli.zig"
     // Register languages here
     try lang_registry.register(.{
         .name = "typescript",
-        .extensions = &[_][]const u8{"ts", "tsx"},
+        .extensions = &[_][]const u8{ "ts", "tsx" },
         .parser_create = &bindings.tree_sitter_typescript.TypeScriptParser.init,
         .node_types = .{
             .program = "program",

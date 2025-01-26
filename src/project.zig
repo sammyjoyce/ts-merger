@@ -71,7 +71,7 @@ pub const Project = struct {
     pub fn writeToFile(self: *Project, file_path: []const u8) !void {
         const output = try self.ast_root.serialize(self.allocator);
         defer self.allocator.free(output);
-        
+
         try std.fs.cwd().writeFile(file_path, output);
     }
 };
