@@ -13,7 +13,7 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    var cli_config = try @import("commands/cli.zig").parseArgs(allocator, args);
+    var cli_config = try @import("commands/cli.zig").parse(allocator);
     defer cli_config.deinit(allocator);
 
     if (cli_config.show_help) {
@@ -49,7 +49,7 @@ fn mergeCommand(allocator: std.mem.Allocator, config: @import("commands/cli.zig"
     Logger.scoped(.Info, "merge").info("Starting merge command...", .{});
     Logger.scoped(.Info, "merge").info("Target: {s}", .{target_file});
     Logger.scoped(.Info, "merge").info("Source files:", .{});
-    for (source_files) |file| {
+    for (config.source_paths) |file| {
         Logger.scoped(.Info, "merge").info("  - {s}", .{file});
     }
 

@@ -2,98 +2,89 @@ const std = @import("std");
 const clap = @import("clap");
 const testing = std.testing;
 
-pub const Command = enum {
-    merge,
-    watch,
-};
+pub const Command = enum { merge, watch };
+
+const main_params = comptime clap.parseParamsComptime(
+    \\-h, --help         Display this help and exit
+    \\-v, --verbose      Enable verbose output
+    \\<command>          Command to run (merge|watch)
+    \\
+);
+
+const merge_params = comptime clap.parseParamsComptime(
+    \\-h, --help         Display merge help
+    \\-t, --target <str> Target output file (required)
+    \\<str>...           Source files to merge
+    \\
+);
+
+const watch_params = comptime clap.parseParamsComptime(
+    \\-h, --help         Display watch help
+    \\-t, --target <str> Target output file (required) 
+    \\-d, --delay <u64>  Watch delay in milliseconds (default: 100)
+    \\-r, --recursive    Watch directories recursively
+    \\<str>...           Paths to watch
+    \\
+);
 
 pub const Config = struct {
     command: Command,
     source_paths: []const []const u8,
-    target_path: ?[]const u8,
+    target_path: []const u8,
     watch_delay_ms: u64,
-    show_help: bool,
     verbose: bool,
     recursive: bool,
 
     pub fn deinit(self: *Config, allocator: std.mem.Allocator) void {
-        allocator.free(self.source_paths);
-        if (self.target_path) |path| {
+        for (self.source_paths) |path| {
             allocator.free(path);
         }
+        allocator.free(self.source_paths);
+        allocator.free(self.target_path);
     }
 };
 
-const params = clap.parseParamsComptime(
-    \\-h, --help             Display this help and exit
-    \\-v, --verbose          Enable verbose output
-    \\-r, --recursive        Process directories recursively
-    \\-t, --target <STR>     Target output file
-    \\-d, --delay <UINT>     Watch delay in milliseconds (default: 100)
-    \\<CMD>                  Command to run (merge, watch)
-    \\<FILES>...             Source files/directories to process
-);
-
-const ParseError = error{
-    NoCommand,
-    InvalidCommand,
-    NoSourcePaths,
-    NoTargetPath,
-    OutOfMemory,
-    UnknownCommand,
-    InvalidNumber,
-};
-
-pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Config {
+pub fn parse(allocator: std.mem.Allocator) !Config {
     var diag = clap.Diagnostic{};
-    var res = clap.parse(clap.Help, &params, clap.parsers.default, args[1..]) catch |err| {
-        try clap.usage(std.io.getStdErr().writer(), clap.Help, &params);
-        return switch (err) {
-            error.InvalidArgument => ParseError.InvalidCommand,
-            error.MissingValue => ParseError.NoTargetPath,
-            else => ParseError.UnknownCommand,
-        };
+    var args = clap.parseEx(clap.Help, &main_params, clap.parsers.default, .{
+        .allocator = allocator,
+        .diagnostic = &diag,
+    }) catch |err| {
+        diag.report(std.io.getStdErr().writer(), err) catch {};
+        return err;
     };
-    defer res.deinit();
+    defer args.deinit();
 
-    // Handle help flag first
-    if (res.args.help != 0) {
-        return Config{
-            .command = undefined,
-            .source_paths = &[_][]const u8{},
-            .target_path = null,
-            .watch_delay_ms = 100,
-            .show_help = true,
-            .verbose = false,
-            .recursive = false,
-        };
-    }
+    const command_str = args.positionals[0] orelse return error.MissingCommand;
+    const command = std.meta.stringToEnum(Command, command_str) orelse return error.InvalidCommand;
+    
+    var sub_args = try clap.parseEx(clap.Help, switch (command) {
+        .merge => &merge_params,
+        .watch => &watch_params,
+    }, clap.parsers.default, .{
+        .allocator = allocator,
+        .diagnostic = &diag,
+    });
+    defer sub_args.deinit();
 
-    // Parse command
-    if (res.positionals.len == 0) {
-        return ParseError.NoCommand;
-    }
-
-    const cmd = std.meta.stringToEnum(Command, res.positionals[0]) orelse {
-        return ParseError.InvalidCommand;
-    };
-
-    // Parse source paths
-    const sources = if (res.positionals.len > 1)
-        try allocator.dupe([]const u8, res.positionals[1..])
-    else
-        &[_][]const u8{};
-
-    // Build config
+    const target_path = sub_args.args.target orelse return error.MissingTargetPath;
+    
     return Config{
-        .command = cmd,
-        .source_paths = sources,
-        .target_path = if (res.args.target) |t| try allocator.dupe(u8, t) else null,
-        .watch_delay_ms = res.args.delay orelse 100,
-        .show_help = false,
-        .verbose = res.args.verbose != 0,
-        .recursive = res.args.recursive != 0,
+        .command = command,
+        .target_path = try allocator.dupe(u8, target_path),
+        .source_paths = try dupeStrings(allocator, sub_args.positionals),
+        .watch_delay_ms = sub_args.args.delay orelse 100,
+        .verbose = args.args.verbose > 0,
+        .recursive = sub_args.args.recursive > 0,
     };
+}
+
+fn dupeStrings(allocator: std.mem.Allocator, strings: []const []const u8) ![]const []const u8 {
+    const copy = try allocator.alloc([]const u8, strings.len);
+    for (strings, 0..) |s, i| {
+        copy[i] = try allocator.dupe(u8, s);
+    }
+    return copy;
 }
 
 pub fn printHelp() !void {
