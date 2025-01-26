@@ -1,4 +1,5 @@
 const std = @import("std");
+const ast_types = @import("../core/ast/ast_types.zig");
 
 pub const TSLanguage = opaque {};
 pub const TSParser = opaque {};
@@ -23,7 +24,7 @@ pub const TSNode = extern struct {
 };
 
 pub const TreeCursor = extern struct {
-    tree: ?*const Tree,
+    tree: ?*const TSTree,
     id: u32,
     context: [2]u32,
 };
@@ -105,31 +106,31 @@ pub const Node = struct {
 pub extern fn ts_parser_new() ?*TSParser;
 pub extern fn ts_parser_delete(parser: *TSParser) void;
 pub extern fn ts_parser_set_language(parser: *TSParser, language: *const TSLanguage) bool;
-pub extern fn ts_parser_parse_string(parser: *Parser, old_tree: ?*Tree, string: [*]const u8, length: u32) ?*Tree;
-pub extern fn ts_parser_parse(parser: *Parser, old_tree: ?*const Tree, input: *const Input) ?*Tree;
-pub extern fn ts_parser_set_included_ranges(parser: *Parser, ranges: [*]const Range, length: u32) bool;
-pub extern fn ts_parser_timeout_micros(parser: *const Parser) u64;
-pub extern fn ts_parser_set_timeout_micros(parser: *Parser, timeout: u64) void;
-pub extern fn ts_parser_reset(parser: *Parser) void;
+pub extern fn ts_parser_parse_string(parser: *TSParser, old_tree: ?*TSTree, string: [*]const u8, length: u32) ?*TSTree;
+pub extern fn ts_parser_parse(parser: *TSParser, old_tree: ?*const TSTree, input: *const Input) ?*TSTree;
+pub extern fn ts_parser_set_included_ranges(parser: *TSParser, ranges: [*]const Range, length: u32) bool;
+pub extern fn ts_parser_timeout_micros(parser: *const TSParser) u64;
+pub extern fn ts_parser_set_timeout_micros(parser: *TSParser, timeout: u64) void;
+pub extern fn ts_parser_reset(parser: *TSParser) void;
 
 /// Tree-sitter tree functions
-pub extern fn ts_tree_root_node(tree: *Tree) Node;
-pub extern fn ts_tree_delete(tree: *Tree) void;
-pub extern fn ts_tree_copy(tree: *const Tree) *Tree;
+pub extern fn ts_tree_root_node(tree: *TSTree) TSNode;
+pub extern fn ts_tree_delete(tree: *TSTree) void;
+pub extern fn ts_tree_copy(tree: *const TSTree) *TSTree;
 
 /// Tree-sitter node functions
-pub extern fn ts_node_child(node: Node, index: u32) Node;
-pub extern fn ts_node_child_count(node: Node) u32;
-pub extern fn ts_node_named_child(node: Node, index: u32) Node;
-pub extern fn ts_node_named_child_count(node: Node) u32;
-pub extern fn ts_node_start_point(node: Node) Point;
-pub extern fn ts_node_end_point(node: Node) Point;
-pub extern fn ts_node_start_byte(node: Node) u32;
-pub extern fn ts_node_end_byte(node: Node) u32;
-pub extern fn ts_node_type(node: Node) ?[*:0]const u8;
-pub extern fn ts_node_is_null(node: Node) bool;
-pub extern fn ts_node_is_named(node: Node) bool;
-pub extern fn ts_node_string(node: Node) [*:0]const u8;
+pub extern fn ts_node_child(node: TSNode, index: u32) TSNode;
+pub extern fn ts_node_child_count(node: TSNode) u32;
+pub extern fn ts_node_named_child(node: TSNode, index: u32) TSNode;
+pub extern fn ts_node_named_child_count(node: TSNode) u32;
+pub extern fn ts_node_start_point(node: TSNode) Point;
+pub extern fn ts_node_end_point(node: TSNode) Point;
+pub extern fn ts_node_start_byte(node: TSNode) u32;
+pub extern fn ts_node_end_byte(node: TSNode) u32;
+pub extern fn ts_node_type(node: TSNode) ?[*:0]const u8;
+pub extern fn ts_node_is_null(node: TSNode) bool;
+pub extern fn ts_node_is_named(node: TSNode) bool;
+pub extern fn ts_node_string(node: TSNode) [*:0]const u8;
 
 /// Tree-sitter cursor functions
 pub extern fn ts_tree_cursor_new(node: Node) TreeCursor;
@@ -200,9 +201,9 @@ pub const SymbolType = enum(c_uint) {
 };
 
 test "tree-sitter parser initialization" {
-    const parser = try Parser_init();
-    defer ts_parser_delete(parser);
-    try std.testing.expect(@intFromPtr(parser) != 0);
+    var parser = try Parser.init(std.testing.allocator);
+    defer parser.deinit();
+    try std.testing.expect(@intFromPtr(parser.ptr) != 0);
 }
 
 test "tree-sitter cursor operations" {
@@ -240,7 +241,7 @@ test "tree-sitter symbol type" {
 
 test "tree-sitter error handling - basic" {
     const makeErrorFn = struct {
-        fn make(err: TreeSitterError) !void {
+        fn make(err: Error) !void {
             return err;
         }
     }.make;
