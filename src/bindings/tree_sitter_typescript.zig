@@ -10,38 +10,41 @@ pub const Node = tree_sitter.Node;
 pub const TreeSitterError = tree_sitter.TreeSitterError;
 
 pub const TypeScriptParser = struct {
-    parser: *Parser,
-    allocator: std.mem.Allocator,
+    parser: Parser,
+    language: *const Language,
 
-    pub fn init(allocator: std.mem.Allocator) !*TypeScriptParser {
-        const parser = try Parser_init();
-        errdefer tree_sitter.ts_parser_delete(parser);
+    pub fn init(allocator: std.mem.Allocator) Error!TypeScriptParser {
+        var parser = try Parser.init(allocator);
+        errdefer parser.deinit();
 
         const language = tree_sitter_typescript();
-        if (!tree_sitter.ts_parser_set_language(parser, language)) {
-            return error.LanguageError;
-        }
-
-        const self = try allocator.create(TypeScriptParser);
-        self.* = .{
+        try parser.setLanguage(language);
+        
+        return .{
             .parser = parser,
-            .allocator = allocator,
+            .language = language,
         };
-        return self;
     }
 
     pub fn deinit(self: *TypeScriptParser) void {
-        tree_sitter.ts_parser_delete(self.parser);
-        self.allocator.destroy(self);
+        self.parser.deinit();
     }
 
-    pub fn parse(self: *TypeScriptParser, source: []const u8) !*Tree {
-        if (source.len == 0) return error.EmptySource;
-        if (source.len > std.math.maxInt(u32)) return error.SourceTooLarge;
+    pub fn parse(self: *TypeScriptParser, source: []const u8) Error!Tree {
+        if (source.len == 0) return Error.InvalidSource;
+        if (source.len > std.math.maxInt(u32)) return Error.InvalidSource;
 
-        const tree = tree_sitter.ts_parser_parse_string(self.parser, null, source.ptr, @intCast(source.len)) orelse return error.ParseError;
+        const tree_ptr = ts_parser_parse_string(
+            self.parser.ptr,
+            null,
+            source.ptr,
+            @intCast(source.len)
+        ) orelse return Error.ParseFailure;
 
-        return tree;
+        return Tree{
+            .ptr = tree_ptr,
+            .parser = &self.parser
+        };
     }
 };
 

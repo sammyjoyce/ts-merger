@@ -1,10 +1,17 @@
-const tree_sitter = @import("tree_sitter.zig");
-const tree_sitter_typescript = @import("tree_sitter_typescript.zig");
+pub usingnamespace @import("tree_sitter.zig");
+pub const typescript = @import("tree_sitter_typescript.zig");
 
-pub const TreeSitter = tree_sitter;
-pub const TreeSitterTypeScript = tree_sitter_typescript;
+pub fn NodeType(comptime lang: anytype) type {
+    return struct {
+        pub const PROGRAM = "program";
+        pub const FUNCTION_DECL = "function_declaration";
+        pub const IDENTIFIER = "identifier";
+        pub const STRING = "string";
+        pub const NUMBER = "number";
+        pub const COMMENT = "comment";
+    };
+}
 
 test {
-    _ = TreeSitter;
-    _ = TreeSitterTypeScript;
+    _ = NodeType(typescript);
 }

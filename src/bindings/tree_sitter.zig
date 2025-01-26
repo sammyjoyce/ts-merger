@@ -28,19 +28,79 @@ pub const TreeCursor = extern struct {
     context: [2]u32,
 };
 
-pub const TreeSitterError = error{
-    ParserInitFailed,
-    ParserCreationFailed,
-    LanguageError,
-    ParseError,
-    EmptySource,
-    SourceTooLarge,
-    QueryError,
+pub const Error = error{
+    ParserInit,
+    LanguageUnavailable, 
+    ParseFailure,
+    InvalidSource,
+    QueryInvalid,
+    AllocationFailed,
+    TreeNavigation,
 };
 
-pub fn Parser_init() TreeSitterError!*Parser {
-    return ts_parser_new() orelse error.ParserInitFailed;
-}
+pub const Parser = struct {
+    ptr: *Parser,
+    allocator: std.mem.Allocator,
+
+    pub fn init(allocator: std.mem.Allocator) Error!Parser {
+        const ptr = ts_parser_new() orelse return Error.ParserInit;
+        return .{
+            .ptr = ptr,
+            .allocator = allocator
+        };
+    }
+
+    pub fn deinit(self: Parser) void {
+        ts_parser_delete(self.ptr);
+    }
+
+    pub fn setLanguage(self: Parser, language: *const Language) Error!void {
+        if (!ts_parser_set_language(self.ptr, language)) {
+            return Error.LanguageUnavailable;
+        }
+    }
+};
+
+pub const Tree = struct {
+    ptr: *Tree,
+    parser: *const Parser,
+
+    pub fn deinit(self: Tree) void {
+        ts_tree_delete(self.ptr);
+    }
+
+    pub fn rootNode(self: Tree) Node {
+        return .{
+            .ptr = ts_tree_root_node(self.ptr),
+            .tree = self,
+        };
+    }
+};
+
+pub const Node = struct {
+    ptr: Node,
+    tree: *const Tree,
+
+    pub fn childCount(self: Node) u32 {
+        return ts_node_child_count(self.ptr);
+    }
+
+    pub fn childByFieldName(self: Node, name: []const u8) Error!Node {
+        const cstr = try self.tree.parser.allocator.dupeZ(u8, name);
+        defer self.tree.parser.allocator.free(cstr);
+        
+        const result = ts_node_child_by_field_name(
+            self.ptr,
+            cstr.ptr,
+            @intCast(cstr.len)
+        );
+        
+        return if (ts_node_is_null(result))
+            Error.TreeNavigation
+        else 
+            Node{.ptr = result, .tree = self.tree};
+    }
+};
 
 /// Tree-sitter parser functions
 pub extern fn ts_parser_new() ?*Parser;
