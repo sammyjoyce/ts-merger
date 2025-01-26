@@ -1,42 +1,31 @@
 const std = @import("std");
 const ast_types = @import("core/ast/ast_types.zig");
 const parser_mod = @import("parser/mod.zig");
-const typescript = @import("parser/typescript.zig");
-const flow = @import("core/flow.zig");
+const LanguageRegistry = @import("bindings/language.zig").LanguageRegistry;
 const Logger = @import("utils/log.zig").Logger;
 
 pub const Project = struct {
     allocator: std.mem.Allocator,
-    flow: *flow.Flow,
-    parser: *parser_mod.Parser, // Use generic parser interface
+    lang_registry: *LanguageRegistry,
+    ast_root: *ast_types.Node,
     owned_nodes: std.ArrayList(*ast_types.Node),
 
-    pub fn init(allocator: std.mem.Allocator) !Project {
-        var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
-        errdefer ts_parser_impl.deinit();
-
-        var parser = parser_mod.Parser.init(allocator, ts_parser_impl, &typescript.interface);
-        errdefer parser.deinit();
-
-        var flow_instance = try flow.Flow.init(allocator);
-        errdefer flow_instance.deinit();
-
+    pub fn init(allocator: std.mem.Allocator, lang_registry: *LanguageRegistry) !Project {
         return .{
             .allocator = allocator,
-            .flow = flow_instance,
-            .parser = parser,
+            .lang_registry = lang_registry,
+            .ast_root = try ast_types.Node.init(allocator),
             .owned_nodes = std.ArrayList(*ast_types.Node).init(allocator),
         };
     }
 
     pub fn deinit(self: *Project) void {
-        self.flow.deinit();
+        self.ast_root.deinit();
         for (self.owned_nodes.items) |node| {
             node.deinit();
             self.allocator.destroy(node);
         }
         self.owned_nodes.deinit();
-        self.parser.deinit();
     }
 
     pub fn getNodes(self: *Project) []const *ast_types.Node {
@@ -65,21 +54,24 @@ pub const Project = struct {
         }
 
         // Parse source using the generic parser interface
-        const root_node = self.parser.parse(source) catch |err| {
-            Logger.scoped(.Error, "project").err("Parsing failed for file '{s}': {s}", .{ file_path, @errorName(err) });
-            return error.ParsingFailed; // Or a more specific error if needed
-        };
-        if (root_node == null) {
-            Logger.scoped(.Error, "project").err("Parsing returned null root node for file '{s}'", .{file_path});
-            return error.NoRootNode; // Or a more specific error
-        }
+        var parser = parser_mod.Parser.init(self.allocator, self.lang_registry);
+        defer parser.deinit();
 
-        // Add root node and its children to flow graph
-        try self.flow.addNode(root_node);
-        try self.owned_nodes.append(root_node);
+        try parser.detectLanguage(source, file_path);
+        const root_node = try parser.parse(source);
+        try self.mergeAst(root_node);
+    }
+
+    fn mergeAst(self: *Project, new_node: *ast_types.Node) !void {
+        // Existing merge logic adapted for language-aware nodes
+        try self.ast_root.merge(new_node);
+        try self.owned_nodes.append(new_node);
     }
 
     pub fn writeToFile(self: *Project, file_path: []const u8) !void {
-        try self.flow.writeToFile(file_path);
+        const output = try self.ast_root.serialize(self.allocator);
+        defer self.allocator.free(output);
+        
+        try std.fs.cwd().writeFile(file_path, output);
     }
 };

@@ -18,23 +18,25 @@ pub const ParserInterface = struct {
 
 pub const Parser = struct {
     allocator: std.mem.Allocator,
-    impl_ptr: *anyopaque,
-    interface: *const ParserInterface,
+    lang_registry: *LanguageRegistry,
+    current_lang: ?*const LanguageMetadata = null,
 
-    pub fn init(allocator: std.mem.Allocator, impl_ptr: *anyopaque, interface: *const ParserInterface) Parser {
+    pub fn init(allocator: std.mem.Allocator, lang_registry: *LanguageRegistry) Parser {
         return .{
             .allocator = allocator,
-            .impl_ptr = impl_ptr,
-            .interface = interface,
+            .lang_registry = lang_registry,
         };
     }
 
-    pub fn deinit(self: *Parser) void {
-        self.interface.deinit(self.impl_ptr);
+    pub fn detectLanguage(self: *Parser, source: []const u8, filename: ?[]const u8) !void {
+        self.current_lang = try self.lang_registry.detect(filename, source);
     }
 
     pub fn parse(self: *Parser, source: []const u8) !*ast_types.Node {
-        return self.interface.parse(self.impl_ptr, source);
+        const lang = self.current_lang orelse return error.NoLanguageDetected;
+        const parser_impl = try lang.parser_create(self.allocator);
+        defer parser_impl.deinit();
+        return try parser_impl.parse(source);
     }
 };
 

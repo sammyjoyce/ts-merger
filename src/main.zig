@@ -54,7 +54,26 @@ fn mergeCommand(allocator: std.mem.Allocator, config: @import("commands/cli.zig"
         Logger.scoped(.Info, "merge").info("  - {s}", .{file});
     }
 
-    var project_instance = try Project.init(allocator);
+    const lang_registry = try bindings.language.LanguageRegistry.init(allocator);
+    defer lang_registry.deinit();
+
+    // Register languages here
+    try lang_registry.register(.{
+        .name = "typescript",
+        .extensions = &[_][]const u8{"ts", "tsx"},
+        .parser_create = &bindings.tree_sitter_typescript.TypeScriptParser.init,
+        .node_types = .{
+            .program = "program",
+            .interface_decl = "interface_declaration",
+            .class_decl = "class_declaration",
+            .function_decl = "function_declaration",
+            .variable_decl = "variable_declaration",
+            .import_decl = "import_statement",
+            .export_decl = "export_statement",
+        },
+    });
+
+    var project_instance = try Project.init(allocator, &lang_registry);
     defer project_instance.deinit();
 
     const logger = Logger.scoped(.Info, "merge");
