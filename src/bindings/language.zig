@@ -7,42 +7,79 @@ pub const LanguageError = error{
     ParserInitFailed,
     LanguageConfigError,
     InvalidSource,
+    InvalidExtension,
+    UnknownLanguage,
 };
 
-pub const Language = enum {
-    TypeScript,
-    JavaScript,
-    // Add more languages as needed
+pub const LanguageMetadata = struct {
+    name: []const u8,
+    extensions: []const []const u8,
+    parser_create: *const fn (std.mem.Allocator) anyerror!*tree_sitter.Parser,
+    node_types: NodeTypeInfo,
+};
 
-    pub fn fromExtension(extension: []const u8) LanguageError!Language {
-        const ext = std.mem.trimLeft(u8, extension, ".");
-        return switch (std.ascii.lowerString(ext)) {
-            "ts", "tsx" => .TypeScript,
-            "js", "jsx" => .JavaScript,
-            else => LanguageError.UnsupportedLanguage,
+pub const NodeTypeInfo = struct {
+    program: []const u8,
+    interface_decl: []const u8,
+    class_decl: []const u8,
+    function_decl: []const u8,
+    variable_decl: []const u8,
+    import_decl: []const u8,
+    export_decl: []const u8,
+};
+
+pub const LanguageRegistry = struct {
+    allocator: std.mem.Allocator,
+    languages: std.ArrayList(LanguageMetadata),
+
+    pub fn init(allocator: std.mem.Allocator) LanguageRegistry {
+        return .{
+            .allocator = allocator,
+            .languages = std.ArrayList(LanguageMetadata).init(allocator),
         };
     }
 
-    pub fn fromContent(content: []const u8) LanguageError!Language {
-        if (content.len == 0) return LanguageError.InvalidSource;
+    pub fn deinit(self: *LanguageRegistry) void {
+        self.languages.deinit();
+    }
 
-        // Look for TypeScript-specific syntax
-        if (std.mem.indexOf(u8, content, "interface ") != null or
-            std.mem.indexOf(u8, content, ": type") != null or
-            std.mem.indexOf(u8, content, "namespace ") != null)
-        {
-            return .TypeScript;
+    pub fn register(self: *LanguageRegistry, meta: LanguageMetadata) !void {
+        try self.languages.append(meta);
+    }
+
+    pub fn detect(self: *const LanguageRegistry, filename: ?[]const u8, source: []const u8) LanguageError!*const LanguageMetadata {
+        // Try detection by file extension first
+        if (filename) |fname| {
+            if (self.detectByExtension(fname)) |lang| return lang;
         }
 
-        // Default to JavaScript if no TypeScript-specific syntax is found
-        return .JavaScript;
+        // Fall back to content analysis
+        return self.detectByContent(source) orelse error.DetectionFailed;
     }
 
-    pub fn getExtensions(self: Language) []const []const u8 {
-        return switch (self) {
-            .TypeScript => &[_][]const u8{ ".ts", ".tsx" },
-            .JavaScript => &[_][]const u8{ ".js", ".jsx" },
-        };
+    fn detectByExtension(self: *const LanguageRegistry, filename: []const u8) ?*const LanguageMetadata {
+        if (std.mem.lastIndexOfScalar(u8, filename, '.')) |dot| {
+            const ext = filename[dot+1..];
+            for (self.languages.items) |*lang| {
+                for (lang.extensions) |lang_ext| {
+                    if (std.mem.eql(u8, ext, lang_ext)) return lang;
+                }
+            }
+        }
+        return null;
+    }
+
+    fn detectByContent(self: *const LanguageRegistry, source: []const u8) ?*const LanguageMetadata {
+        // Simple heuristic-based detection
+        for (self.languages.items) |*lang| {
+            if (std.mem.indexOf(u8, source, "interface ")) |_| {
+                if (std.mem.eql(u8, lang.name, "typescript")) return lang;
+            }
+            if (std.mem.indexOf(u8, source, "class ")) |_| {
+                if (std.mem.eql(u8, lang.name, "javascript")) return lang;
+            }
+        }
+        return null;
     }
 };
 
