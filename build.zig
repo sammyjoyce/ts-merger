@@ -34,6 +34,14 @@ fn addTests(
     } else null;
 
     // Create modules needed for tests
+    const bindings_module = b.createModule(.{
+        .root_source_file = .{ .cwd_relative = "src/bindings/mod.zig" },
+        .imports = &.{
+            .{ .name = "tree_sitter", .module = options.tree_sitter },
+            .{ .name = "tree_sitter_typescript", .module = options.tree_sitter_typescript },
+        },
+    });
+
     const ast_types_module = b.createModule(.{
         .root_source_file = .{ .cwd_relative = "src/core/ast/ast_types.zig" },
         .imports = &.{.{ .name = "tree_sitter", .module = options.tree_sitter }},
@@ -42,8 +50,7 @@ fn addTests(
     const parser_module = b.createModule(.{
         .root_source_file = .{ .cwd_relative = "src/parser/mod.zig" },
         .imports = &.{
-            .{ .name = "tree_sitter", .module = options.tree_sitter },
-            .{ .name = "tree_sitter_typescript", .module = options.tree_sitter_typescript },
+            .{ .name = "bindings", .module = bindings_module },
             .{ .name = "ast_types", .module = ast_types_module },
         },
     });

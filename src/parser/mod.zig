@@ -1,9 +1,7 @@
 const std = @import("std");
-const tree_sitter = @import("tree_sitter");
-const tree_sitter_ts = @import("../bindings/tree_sitter_typescript.zig");
+const bindings = @import("bindings");
 const ast_types = @import("ast_types");
 const testing = std.testing;
-const typescript = @import("../bindings/tree_sitter_typescript.zig");
 
 pub const ParserInterface = struct {
     deinitFn: *const fn (ctx: *anyopaque) void,
