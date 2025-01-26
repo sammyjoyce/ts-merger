@@ -96,7 +96,7 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Config
         return ParseError.NoSourcePaths;
     }
 
-    if (config.command == .merge and !has_target and !config.show_help) {
+    if ((config.command == .merge or config.command == .watch) and !has_target and !config.show_help) {
         return ParseError.NoTargetPath;
     }
 
@@ -200,18 +200,23 @@ test "parse watch command" {
 test "parse missing target - merge" {
     const allocator = std.testing.allocator;
     const args = [_][]const u8{ "ts-merger", "merge", "src/a.ts" };
-    var config = parseArgs(allocator, &args) catch |err| {
+    const config = parseArgs(allocator, &args) catch |err| {
         try testing.expectEqual(error.NoTargetPath, err);
         return;
     };
     defer config.deinit(allocator);
-    try testing.expect(false); // Should not reach here
+    return error.TestExpectedError;
 }
 
 test "parse missing target - watch" {
     const allocator = std.testing.allocator;
     const args = [_][]const u8{ "ts-merger", "watch", "src/a.ts" };
-    try testing.expectError(error.NoTargetPath, parseArgs(allocator, &args));
+    const config = parseArgs(allocator, &args) catch |err| {
+        try testing.expectEqual(error.NoTargetPath, err);
+        return;
+    };
+    defer config.deinit(allocator);
+    return error.TestExpectedError;
 }
 
 test "parse invalid command" {

@@ -4,8 +4,17 @@ const ast_types = @import("ast_types");
 const typescript = @import("../bindings/tree_sitter_typescript.zig");
 
 pub fn analyze(allocator: std.mem.Allocator, input: []const u8) !void {
+    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    defer ts_parser_impl.deinit();
+    
+    var parser = Parser.init(allocator, ts_parser_impl, &typescript.interface);
+    defer parser.deinit();
+    
+    const node = try parser.parse(input);
+    defer node.deinit();
+    
     if (node.kind.kind == .unknown) {
-        Logger.scoped(.Warning, "flow").err("Skipping unknown node type", .{});
+        Logger.scoped(.Warning, "flow").warn("Skipping unknown node type", .{});
         return;
     }
 
