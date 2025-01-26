@@ -14,7 +14,7 @@ pub const Project = struct {
     pub fn init(allocator: std.mem.Allocator) !Project {
         var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
         var parser = parser_mod.Parser.init(allocator, ts_parser_impl, &typescript.interface);
-        
+
         return .{
             .allocator = allocator,
             .flow = try flow.Flow.init(allocator),
