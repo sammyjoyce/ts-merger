@@ -57,7 +57,7 @@ pub fn parse(allocator: std.mem.Allocator) !Config {
 
     const command_str = args.positionals[0] orelse return error.MissingCommand;
     const command = std.meta.stringToEnum(Command, command_str) orelse return error.InvalidCommand;
-    
+
     var sub_args = try clap.parseEx(clap.Help, switch (command) {
         .merge => &merge_params,
         .watch => &watch_params,
@@ -68,7 +68,7 @@ pub fn parse(allocator: std.mem.Allocator) !Config {
     defer sub_args.deinit();
 
     const target_path = sub_args.args.target orelse return error.MissingTargetPath;
-    
+
     return Config{
         .command = command,
         .target_path = try allocator.dupe(u8, target_path),
