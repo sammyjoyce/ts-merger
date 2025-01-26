@@ -17,7 +17,8 @@ pub const TypeScriptParser = struct {
         const parser = try Parser_init();
         errdefer tree_sitter.ts_parser_delete(parser);
 
-        if (!tree_sitter.ts_parser_set_language(parser, tree_sitter_typescript())) {
+        const language = tree_sitter_typescript();
+        if (!tree_sitter.ts_parser_set_language(parser, language)) {
             return error.LanguageError;
         }
 

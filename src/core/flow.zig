@@ -3,6 +3,28 @@ const Parser = @import("../parser/mod.zig").Parser;
 const ast_types = @import("ast_types");
 const typescript = @import("../bindings/tree_sitter_typescript.zig");
 
+pub const Flow = struct {
+    allocator: std.mem.Allocator,
+    nodes: std.ArrayList(*ast_types.Node),
+
+    pub fn init(allocator: std.mem.Allocator) !*Flow {
+        const self = try allocator.create(Flow);
+        self.* = .{
+            .allocator = allocator,
+            .nodes = std.ArrayList(*ast_types.Node).init(allocator),
+        };
+        return self;
+    }
+
+    pub fn deinit(self: *Flow) void {
+        for (self.nodes.items) |node| {
+            node.deinit();
+        }
+        self.nodes.deinit();
+        self.allocator.destroy(self);
+    }
+};
+
 pub fn analyze(allocator: std.mem.Allocator, input: []const u8) !void {
     var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
@@ -196,7 +218,7 @@ fn detectCycleDfs(allocator: std.mem.Allocator, start: *ast_types.Node) ![]const
 }
 
 const testing = std.testing;
-const parser_mod = @import("../parser/mod.zig");
+const tree_sitter_ts = @import("../bindings/tree_sitter_typescript.zig");
 
 test "cyclic dependency detection" {
     const allocator = testing.allocator;

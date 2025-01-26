@@ -11,7 +11,10 @@ pub const Project = struct {
     parser: *parser_mod.Parser, // Use generic parser interface
     owned_nodes: std.ArrayList(*ast_types.Node),
 
-    pub fn init(allocator: std.mem.Allocator, parser: *parser_mod.Parser) !Project {
+    pub fn init(allocator: std.mem.Allocator) !Project {
+        var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+        var parser = parser_mod.Parser.init(allocator, ts_parser_impl, &typescript.interface);
+        
         return .{
             .allocator = allocator,
             .flow = try flow.Flow.init(allocator),
@@ -21,12 +24,13 @@ pub const Project = struct {
     }
 
     pub fn deinit(self: *Project) void {
+        self.flow.deinit();
         for (self.owned_nodes.items) |node| {
             node.deinit();
             self.allocator.destroy(node);
         }
         self.owned_nodes.deinit();
-        self.flow.deinit();
+        self.parser.deinit();
     }
 
     pub fn getNodes(self: *Project) []const *ast_types.Node {
