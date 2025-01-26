@@ -27,10 +27,11 @@ fn addTests(
     const test_step = b.step("test", "Run all tests");
 
     // Get libxev dependency
-    const libxev_dep = b.dependency("libxev", .{});
-
-    // Get libxev module
-    const libxev_module = libxev_dep.module("libxev");
+    const enable_watcher = false;
+    const libxev_module = if (enable_watcher) blk: {
+        const libxev_dep = b.dependency("libxev", .{});
+        break :blk libxev_dep.module("libxev");
+    } else null;
 
     // Create modules needed for tests
     const ast_types_module = b.createModule(.{
@@ -55,13 +56,16 @@ fn addTests(
         },
     });
 
-    // Add tests from source files
-    const source_tests = [_]struct {
+    // Define the test configuration type
+    const TestConfig = struct {
         name: []const u8,
         path: []const u8,
         modules: []const struct { name: []const u8, module: *std.Build.Module },
         needs_cpp: bool,
-    }{
+    };
+
+    // Add tests from source files
+    const source_tests = [_]TestConfig{
         .{
             .name = "tree_sitter",
             .path = "src/bindings/tree_sitter.zig",
@@ -97,15 +101,16 @@ fn addTests(
             },
             .needs_cpp = false,
         },
+    } ++ if (enable_watcher) [_]TestConfig{
         .{
             .name = "watcher",
             .path = "src/watcher/mod.zig",
             .modules = &.{
-                .{ .name = "libxev", .module = libxev_module },
+                .{ .name = "libxev", .module = libxev_module.? },
             },
             .needs_cpp = true,
         },
-    };
+    } else [_]TestConfig{};
 
     // Configure and add each test
     for (source_tests) |test_info| {
@@ -167,6 +172,7 @@ pub fn build(b: *std.Build) !void {
         .files = &.{ts_lib_c},
         .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
     });
+    tree_sitter.installHeadersDirectory(.{ .cwd_relative = tree_sitter_path }, "include/tree_sitter", .{});
     tree_sitter.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
 
     // Build the tree-sitter-typescript library
@@ -189,6 +195,7 @@ pub fn build(b: *std.Build) !void {
         .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
         .files = &.{ ts_parser_c, ts_scanner_c },
     });
+    tree_sitter_typescript.installHeadersDirectory(.{ .cwd_relative = ts_include_path }, "include/tree_sitter_typescript", .{});
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = ts_include_path });
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
     tree_sitter_typescript.linkLibrary(tree_sitter);
@@ -205,13 +212,11 @@ pub fn build(b: *std.Build) !void {
     // Create the main executable
     const exe = b.addExecutable(.{
         .name = exe_name,
-        .root_source_file = .{ .src_path = .{ .owner = b, .sub_path = "src/main.zig" } },
+        .root_source_file = .{ .cwd_relative = "src/main.zig" },
         .target = target,
         .optimize = mode,
     });
-    exe.root_module.addImport("tree-sitter", tree_sitter_module);
-    exe.root_module.addImport("tree-sitter-typescript", tree_sitter_typescript_module);
-    exe.addIncludePath(.{ .src_path = .{ .owner = b, .sub_path = "src" } });
+    exe.addIncludePath(.{ .cwd_relative = "src" });
     exe.linkLibC();
     exe.linkLibrary(tree_sitter);
     exe.linkLibrary(tree_sitter_typescript);

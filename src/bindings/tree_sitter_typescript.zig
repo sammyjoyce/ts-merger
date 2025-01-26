@@ -50,3 +50,4 @@ extern "c" fn ts_parser_new() ?*Parser;
 extern "c" fn ts_parser_delete(parser: *Parser) void;
 extern "c" fn ts_parser_set_language(parser: *Parser, language: *const Language) bool;
 extern "c" fn ts_parser_parse_string(parser: *Parser, old_tree: ?*Tree, string: [*]const u8, length: u32) ?*Tree;
+pub const interface = @import("../parser/typescript.zig").interface;
