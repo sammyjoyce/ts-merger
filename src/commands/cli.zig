@@ -4,21 +4,21 @@ const testing = std.testing;
 
 pub const Command = enum { merge, watch };
 
-const main_params = comptime clap.parseParamsComptime(
+const main_params = clap.parseParamsComptime(
     \\-h, --help         Display this help and exit
     \\-v, --verbose      Enable verbose output
     \\<command>          Command to run (merge|watch)
     \\
 );
 
-const merge_params = comptime clap.parseParamsComptime(
+const merge_params = clap.parseParamsComptime(
     \\-h, --help         Display merge help
     \\-t, --target <str> Target output file (required)
     \\<str>...           Source files to merge
     \\
 );
 
-const watch_params = comptime clap.parseParamsComptime(
+const watch_params = clap.parseParamsComptime(
     \\-h, --help         Display watch help
     \\-t, --target <str> Target output file (required) 
     \\-d, --delay <u64>  Watch delay in milliseconds (default: 100)
@@ -68,6 +68,47 @@ pub fn parse(allocator: std.mem.Allocator) !Config {
     defer sub_args.deinit();
 
     const target_path = sub_args.args.target orelse return error.MissingTargetPath;
+
+    return Config{
+        .command = command,
+        .target_path = try allocator.dupe(u8, target_path),
+        .source_paths = try dupeStrings(allocator, sub_args.positionals),
+        .watch_delay_ms = sub_args.args.delay orelse 100,
+        .verbose = args.args.verbose > 0,
+        .recursive = sub_args.args.recursive > 0,
+    };
+}
+
+pub fn parseArgs(allocator: std.mem.Allocator, args_slice: []const []const u8) !Config {
+    var diag = clap.Diagnostic{};
+    var args = clap.parseEx(clap.Help, &main_params, clap.parsers.default, .{
+        .allocator = allocator,
+        .diagnostic = &diag,
+        .args = args_slice,
+    }) catch |err| {
+        diag.report(std.io.getStdErr().writer(), err) catch {};
+        return err;
+    };
+    defer args.deinit();
+
+    if (args.args.help > 0) {
+        return error.HelpRequested;
+    }
+
+    const command_str = args.positionals[0] orelse return error.MissingCommand;
+    const command = std.meta.stringToEnum(Command, command_str) orelse return error.InvalidCommand;
+
+    var sub_args = try clap.parseEx(clap.Help, switch (command) {
+        .merge => &merge_params,
+        .watch => &watch_params,
+    }, clap.parsers.default, .{
+        .allocator = allocator,
+        .diagnostic = &diag,
+        .args = args_slice,
+    });
+    defer sub_args.deinit();
+
+    const target_path = sub_args.args.target orelse return error.NoTargetPath;
 
     return Config{
         .command = command,
