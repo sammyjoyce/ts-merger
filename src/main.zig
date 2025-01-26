@@ -13,43 +13,37 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    if (args.len < 2) {
-        Logger.init(.Error).err("Error: Not enough arguments", .{});
-        return error.NotEnoughArguments;
+    var cli_config = try @import("commands/cli.zig").parseArgs(allocator, args);
+    defer cli_config.deinit(allocator);
+
+    if (cli_config.show_help) {
+        try @import("commands/cli.zig").printHelp();
+        return;
     }
 
-    const command = args[1];
-    const command_args = args[2..];
-
-    if (std.mem.eql(u8, command, "merge")) {
-        return mergeCommand(allocator, command_args) catch |err| handleMergeError(err, command_args);
-    } else {
-        Logger.init(.Error).err("Error: Unknown command '{s}'", .{command});
-        return error.UnknownCommand;
+    switch (cli_config.command) {
+        .merge => try mergeCommand(allocator, cli_config),
+        .watch => {
+            Logger.init(.Error).err("Watch command not yet implemented", .{});
+            return error.NotImplemented;
+        },
     }
-    return error.Unreachable;
 }
 
-fn handleMergeError(err: anyerror, args: []const []const u8) noreturn {
-    Logger.scoped(.Error, "merge").err("Merge failed: {s} with args:", .{@errorName(err)});
-    for (args) |arg| {
-        Logger.scoped(.Error, "merge").err("  {s}", .{arg});
-    }
-    std.process.exit(1);
-}
-
-fn mergeCommand(allocator: std.mem.Allocator, args: []const []const u8) !void {
-    if (args.len < 2) {
-        Logger.init(.Error).err("Error: Not enough arguments for merge command", .{});
-        return error.NotEnoughArguments;
-    }
-
-    const target_file = args[0];
-    const source_files = args[1..];
+fn mergeCommand(allocator: std.mem.Allocator, config: @import("commands/cli.zig").Config) !void {
+    const target_file = config.target_path orelse {
+        Logger.init(.Error).err("Error: Target path required for merge command", .{});
+        return error.NoTargetPath;
+    };
 
     if (!std.fs.path.isAbsolute(target_file)) {
         Logger.scoped(.Error, "merge").err("Target path must be absolute: {s}", .{target_file});
         return error.InvalidPath;
+    }
+
+    if (config.source_paths.len == 0) {
+        Logger.init(.Error).err("Error: No source files specified", .{});
+        return error.NoSourcePaths;
     }
 
     Logger.scoped(.Info, "merge").info("Starting merge command...", .{});
