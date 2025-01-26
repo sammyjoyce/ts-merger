@@ -208,6 +208,18 @@ pub fn build(b: *std.Build) !void {
     tree_sitter_typescript.linkLibrary(tree_sitter);
     tree_sitter_typescript.linkLibCpp();
 
+    // Add grammar generation step
+    const gen = b.addExecutable(.{
+        .name = "grammar_gen",
+        .root_source_file = .{ .cwd_relative = "src/tools/grammar_gen.zig" },
+        .target = target,
+        .optimize = mode,
+    });
+
+    const gen_cmd = b.addRunArtifact(gen);
+    gen_cmd.addArg("--language=typescript");
+    gen_cmd.addArg("--output=src/bindings/generated/typescript.zig");
+
     // Create modules for the final executable
     const tree_sitter_module = b.createModule(.{
         .root_source_file = .{ .cwd_relative = "src/bindings/tree_sitter.zig" },

@@ -1,5 +1,6 @@
 const std = @import("std");
 const tree_sitter = @import("tree_sitter");
+const Generated = @import("generated/typescript.zig");
 
 extern "c" fn tree_sitter_typescript() *const tree_sitter.Language;
 
@@ -10,6 +11,14 @@ pub const Node = tree_sitter.Node;
 pub const TreeSitterError = tree_sitter.TreeSitterError;
 
 pub const TypeScriptParser = struct {
+    fn mapNodeType(ts_node_type: []const u8) ?Generated.NodeType {
+        inline for (@typeInfo(Generated.NodeType).Enum.fields) |field| {
+            if (std.mem.eql(u8, ts_node_type, field.name)) {
+                return @field(Generated.NodeType, field.name);
+            }
+        }
+        return null;
+    }
     parser: Parser,
     language: *const Language,
 

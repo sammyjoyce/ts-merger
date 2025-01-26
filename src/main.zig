@@ -74,7 +74,7 @@ fn mergeCommand(allocator: std.mem.Allocator, config: @import("commands/cli.zig"
         .detect_content = struct {
             fn detect(src: []const u8) bool {
                 return std.mem.indexOf(u8, src, "interface ") != null or
-                       std.mem.indexOf(u8, src, "class ") != null;
+                    std.mem.indexOf(u8, src, "class ") != null;
             }
         }.detect,
     });
