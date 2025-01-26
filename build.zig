@@ -202,6 +202,29 @@ pub fn build(b: *std.Build) !void {
         .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
         .files = &.{ ts_parser_c, ts_scanner_c },
     });
+
+    // Add TSX library
+    const tree_sitter_tsx = b.addStaticLibrary(.{
+        .name = "tree-sitter-tsx",
+        .target = target,
+        .optimize = mode,
+    });
+
+    const tsx_parser_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx", "src", "parser.c" });
+    defer b.allocator.free(tsx_parser_c);
+
+    const tsx_scanner_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx", "src", "scanner.c" });
+    defer b.allocator.free(tsx_scanner_c);
+
+    const tsx_include_path = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx", "src" });
+    defer b.allocator.free(tsx_include_path);
+
+    tree_sitter_tsx.addCSourceFiles(.{
+        .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
+        .files = &.{ tsx_parser_c, tsx_scanner_c },
+    });
+    tree_sitter_tsx.linkLibrary(tree_sitter);
+    tree_sitter_tsx.linkLibC();
     tree_sitter_typescript.installHeadersDirectory(.{ .cwd_relative = ts_include_path }, "include/tree_sitter_typescript", .{});
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = ts_include_path });
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
@@ -216,10 +239,15 @@ pub fn build(b: *std.Build) !void {
         .optimize = mode,
     });
 
-    const gen_cmd = b.addRunArtifact(gen);
-    gen_cmd.addArg("--language=typescript");
-    gen_cmd.addArg("--output=src/bindings/generated/typescript.zig");
-    gen_cmd.addArg("--parser-output=src/bindings/generated/TypeScriptParser.zig");
+    const gen_ts_cmd = b.addRunArtifact(gen);
+    gen_ts_cmd.addArg("--language=typescript");
+    gen_ts_cmd.addArg("--output=src/bindings/generated/typescript.zig");
+    gen_ts_cmd.addArg("--parser-output=src/bindings/generated/TypeScriptParser.zig");
+
+    const gen_tsx_cmd = b.addRunArtifact(gen);
+    gen_tsx_cmd.addArg("--language=tsx");
+    gen_tsx_cmd.addArg("--output=src/bindings/generated/tsx.zig");
+    gen_tsx_cmd.addArg("--parser-output=src/bindings/generated/TSXParser.zig");
 
     // Create modules for the final executable
     const tree_sitter_module = b.createModule(.{

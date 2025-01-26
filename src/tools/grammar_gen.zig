@@ -14,7 +14,11 @@ pub fn main() !void {
     const language = blk: {
         for (args) |arg, i| {
             if (std.mem.eql(u8, arg, "--language") and i+1 < args.len) {
-                break :blk args[i+1];
+                const lang = args[i+1];
+                if (!std.mem.eql(u8, lang, "typescript") and !std.mem.eql(u8, lang, "tsx")) {
+                    return error.UnsupportedLanguage;
+                }
+                break :blk lang;
             }
         }
         return error.MissingLanguageArg;

@@ -92,6 +92,7 @@ pub const LanguageParser = struct {
 
         const language_ptr = switch (language) {
             .TypeScript => tree_sitter_typescript(),
+            .TSX => tree_sitter_tsx(),
             .JavaScript => tree_sitter_typescript(), // Currently using TypeScript parser for JS
         };
 
@@ -119,4 +120,5 @@ pub const LanguageParser = struct {
 
 // External C functions for different language parsers
 extern "c" fn tree_sitter_typescript() *const tree_sitter.Language;
+extern "c" fn tree_sitter_tsx() *const tree_sitter.Language;
 // Add more language parser declarations as needed
