@@ -52,12 +52,21 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Config
         .recursive = false,
     };
 
+    // Check for help flag first
+    if (std.mem.eql(u8, args[1], "-h") or std.mem.eql(u8, args[1], "--help")) {
+        config.show_help = true;
+        return config;
+    }
+
     // Parse command
     config.command = std.meta.stringToEnum(Command, args[1]) orelse {
         return ParseError.UnknownCommand;
     };
 
     var source_paths = std.ArrayList([]const u8).init(allocator);
+    defer source_paths.deinit();
+
+    var has_target = false;
     var i: usize = 2;
     while (i < args.len) : (i += 1) {
         const arg = args[i];
@@ -65,6 +74,7 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Config
             i += 1;
             if (i >= args.len) return ParseError.NoTargetPath;
             config.target_path = try allocator.dupe(u8, args[i]);
+            has_target = true;
         } else if (std.mem.eql(u8, arg, "-d") or std.mem.eql(u8, arg, "--delay")) {
             i += 1;
             if (i >= args.len) return ParseError.InvalidNumber;
@@ -75,6 +85,8 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Config
             config.show_help = true;
         } else if (std.mem.eql(u8, arg, "-v") or std.mem.eql(u8, arg, "--verbose")) {
             config.verbose = true;
+        } else if (std.mem.eql(u8, arg, "-r") or std.mem.eql(u8, arg, "--recursive")) {
+            config.recursive = true;
         } else {
             try source_paths.append(try allocator.dupe(u8, arg));
         }
@@ -82,6 +94,10 @@ pub fn parseArgs(allocator: std.mem.Allocator, args: []const []const u8) !Config
 
     if (source_paths.items.len == 0 and !config.show_help) {
         return ParseError.NoSourcePaths;
+    }
+
+    if (config.command == .merge and !has_target and !config.show_help) {
+        return ParseError.NoTargetPath;
     }
 
     config.source_paths = try source_paths.toOwnedSlice();
@@ -167,14 +183,16 @@ pub fn parseArgsFromProcess(allocator: std.mem.Allocator) ParseError!Config {
 test "parse help command" {
     const allocator = std.testing.allocator;
     const args = [_][]const u8{ "ts-merger", "--help" };
-    const config = try parseArgs(allocator, &args);
+    var config = try parseArgs(allocator, &args);
+    defer config.deinit(allocator);
     try testing.expect(config.show_help);
 }
 
 test "parse watch command" {
     const allocator = std.testing.allocator;
     const args = [_][]const u8{ "ts-merger", "watch", "--recursive", "src/a.ts" };
-    const config = try parseArgs(allocator, &args);
+    var config = try parseArgs(allocator, &args);
+    defer config.deinit(allocator);
     try testing.expect(config.recursive);
     try testing.expectEqualStrings("src/a.ts", config.source_paths[0]);
 }
@@ -182,38 +200,28 @@ test "parse watch command" {
 test "parse missing target - merge" {
     const allocator = std.testing.allocator;
     const args = [_][]const u8{ "ts-merger", "merge", "src/a.ts" };
-    try testing.expectError(error.NoTargetFile, parseArgs(allocator, &args));
+    var config = parseArgs(allocator, &args) catch |err| {
+        try testing.expectEqual(error.NoTargetPath, err);
+        return;
+    };
+    defer config.deinit(allocator);
+    try testing.expect(false); // Should not reach here
 }
 
 test "parse missing target - watch" {
     const allocator = std.testing.allocator;
     const args = [_][]const u8{ "ts-merger", "watch", "src/a.ts" };
-    try testing.expectError(error.NoTargetFile, parseArgs(allocator, &args));
+    try testing.expectError(error.NoTargetPath, parseArgs(allocator, &args));
 }
 
 test "parse invalid command" {
-    var arena = std.heap.ArenaAllocator.init(testing.allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-
+    const allocator = std.testing.allocator;
     const args = [_][]const u8{ "fuze", "invalid" };
     try testing.expectError(error.UnknownCommand, parseArgs(allocator, &args));
 }
 
-test "parse missing target" {
-    var arena = std.heap.ArenaAllocator.init(testing.allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-
-    const args = [_][]const u8{ "fuze", "merge", "src/a.ts" };
-    try testing.expectError(error.NoTargetPath, parseArgs(allocator, &args));
-}
-
 test "parse invalid watch delay" {
-    var arena = std.heap.ArenaAllocator.init(testing.allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-
+    const allocator = std.testing.allocator;
     const args = [_][]const u8{ "fuze", "watch", "-d", "invalid", "src" };
     try testing.expectError(error.InvalidNumber, parseArgs(allocator, &args));
 }
