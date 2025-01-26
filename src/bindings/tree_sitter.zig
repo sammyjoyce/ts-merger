@@ -58,7 +58,7 @@ pub const Parser = struct {
         ts_parser_delete(self.ptr);
     }
 
-    pub fn setLanguage(self: Parser, language: *const Language) Error!void {
+    pub fn setLanguage(self: Parser, language: *const TSLanguage) Error!void {
         if (!ts_parser_set_language(self.ptr, language)) {
             return Error.LanguageUnavailable;
         }
@@ -108,6 +108,7 @@ pub extern fn ts_parser_delete(parser: *TSParser) void;
 pub extern fn ts_parser_set_language(parser: *TSParser, language: *const TSLanguage) bool;
 pub extern fn ts_parser_parse_string(parser: *TSParser, old_tree: ?*TSTree, string: [*]const u8, length: u32) ?*TSTree;
 pub extern fn ts_parser_parse(parser: *TSParser, old_tree: ?*const TSTree, input: *const Input) ?*TSTree;
+pub extern fn ts_node_child_by_field_name(node: TSNode, field_name: [*:0]const u8, length: u32) TSNode;
 pub extern fn ts_parser_set_included_ranges(parser: *TSParser, ranges: [*]const Range, length: u32) bool;
 pub extern fn ts_parser_timeout_micros(parser: *const TSParser) u64;
 pub extern fn ts_parser_set_timeout_micros(parser: *TSParser, timeout: u64) void;
@@ -133,10 +134,10 @@ pub extern fn ts_node_is_named(node: TSNode) bool;
 pub extern fn ts_node_string(node: TSNode) [*:0]const u8;
 
 /// Tree-sitter cursor functions
-pub extern fn ts_tree_cursor_new(node: Node) TreeCursor;
-pub extern fn ts_tree_cursor_reset(cursor: *TreeCursor, node: Node) void;
+pub extern fn ts_tree_cursor_new(node: TSNode) TreeCursor;
+pub extern fn ts_tree_cursor_reset(cursor: *TreeCursor, node: TSNode) void;
 pub extern fn ts_tree_cursor_delete(cursor: *TreeCursor) void;
-pub extern fn ts_tree_cursor_current_node(cursor: *const TreeCursor) Node;
+pub extern fn ts_tree_cursor_current_node(cursor: *const TreeCursor) TSNode;
 pub extern fn ts_tree_cursor_goto_first_child(cursor: *TreeCursor) bool;
 pub extern fn ts_tree_cursor_goto_next_sibling(cursor: *TreeCursor) bool;
 pub extern fn ts_tree_cursor_goto_parent(cursor: *TreeCursor) bool;
@@ -207,20 +208,21 @@ test "tree-sitter parser initialization" {
 }
 
 test "tree-sitter cursor operations" {
-    const parser = try Parser_init();
-    defer ts_parser_delete(parser);
+    var parser = try Parser.init(std.testing.allocator);
+    defer parser.deinit();
 
     const source = "function test() {}";
-    const tree = try ts_parser_parse_string(
-        parser,
+    const tree_ptr = ts_parser_parse_string(
+        parser.ptr,
         null,
         source.ptr,
         @intCast(source.len),
-    );
-    defer ts_tree_delete(tree);
+    ) orelse return error.ParseFailure;
+    const tree = Tree{ .ptr = tree_ptr, .parser = &parser };
+    defer tree.deinit();
 
-    const root_node = ts_tree_root_node(tree);
-    var cursor = ts_tree_cursor_new(root_node);
+    const root_node = tree.rootNode();
+    var cursor = ts_tree_cursor_new(root_node.ptr);
     defer ts_tree_cursor_delete(&cursor);
 }
 
@@ -246,17 +248,17 @@ test "tree-sitter error handling - basic" {
         }
     }.make;
 
-    try std.testing.expectError(error.ParserCreationFailed, makeErrorFn(error.ParserCreationFailed));
-    try std.testing.expectError(error.QueryError, makeErrorFn(error.QueryError));
+    try std.testing.expectError(error.ParserInit, makeErrorFn(error.ParserInit));
+    try std.testing.expectError(error.QueryInvalid, makeErrorFn(error.QueryInvalid));
 }
 
 test "tree-sitter error handling" {
     const makeErrorFn = struct {
-        fn make(err: TreeSitterError) !void {
+        fn make(err: Error) !void {
             return err;
         }
     }.make;
 
-    try std.testing.expectError(error.ParserCreationFailed, makeErrorFn(error.ParserCreationFailed));
-    try std.testing.expectError(error.QueryError, makeErrorFn(error.QueryError));
+    try std.testing.expectError(error.ParserInit, makeErrorFn(error.ParserInit));
+    try std.testing.expectError(error.QueryInvalid, makeErrorFn(error.QueryInvalid));
 }
