@@ -1,6 +1,7 @@
 pub usingnamespace @import("tree_sitter.zig");
 pub const language = @import("language.zig");
 pub const typescript = @import("tree_sitter_typescript.zig");
+pub const tree_sitter_typescript = @import("tree_sitter_typescript.zig");
 pub const tsx = @import("tree_sitter_tsx.zig");
 
 pub const Language = language.Language;

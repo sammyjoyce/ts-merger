@@ -218,7 +218,7 @@ test "tree-sitter cursor operations" {
         source.ptr,
         @intCast(source.len),
     ) orelse return error.ParseFailure;
-    const tree = Tree{ .ptr = tree_ptr, .parser = &parser };
+    var tree = Tree{ .ptr = tree_ptr, .parser = &parser };
     defer tree.deinit();
 
     const root_node = tree.rootNode();
