@@ -69,11 +69,11 @@ pub const Tree = struct {
     ptr: *TSTree,
     parser: *const Parser,
 
-    pub fn deinit(self: Tree) void {
+    pub fn deinit(self: *Tree) void {
         ts_tree_delete(self.ptr);
     }
 
-    pub fn rootNode(self: Tree) Node {
+    pub fn rootNode(self: *const Tree) Node {
         return .{
             .ptr = ts_tree_root_node(self.ptr),
             .tree = self,
