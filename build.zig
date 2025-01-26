@@ -217,12 +217,14 @@ pub fn build(b: *std.Build) !void {
     });
 
     // Create the main executable
+    const clap_dep = b.dependency("clap", .{});
     const exe = b.addExecutable(.{
         .name = exe_name,
         .root_source_file = .{ .cwd_relative = "src/main.zig" },
         .target = target,
         .optimize = mode,
     });
+    exe.root_module.addImport("clap", clap_dep.module("clap"));
     exe.addIncludePath(.{ .cwd_relative = "src" });
     exe.linkLibC();
     exe.linkLibrary(tree_sitter);
