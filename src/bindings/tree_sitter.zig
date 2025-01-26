@@ -38,6 +38,12 @@ pub const Error = error{
     TreeNavigation,
 };
 
+pub const LanguageParserInterface = struct {
+    init: *const fn (allocator: std.mem.Allocator) anyerror!*anyopaque,
+    parse: *const fn (parser: *anyopaque, source: []const u8) anyerror!*ast_types.Node,
+    deinit: *const fn (parser: *anyopaque) void,
+};
+
 pub const Parser = struct {
     ptr: *Parser,
     allocator: std.mem.Allocator,

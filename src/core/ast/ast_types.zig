@@ -36,10 +36,11 @@ pub const Location = struct {
 };
 
 pub const NodeKind = struct {
-    kind: Kind,
+    base: BaseKind,
+    custom_kind: ?[]const u8,
     source: ?[]const u8,
 
-    pub const Kind = enum {
+    pub const BaseKind = enum {
         unknown,
         program,
         export_statement,

@@ -71,6 +71,12 @@ fn mergeCommand(allocator: std.mem.Allocator, config: @import("commands/cli.zig"
             .import_decl = "import_statement",
             .export_decl = "export_statement",
         },
+        .detect_content = struct {
+            fn detect(src: []const u8) bool {
+                return std.mem.indexOf(u8, src, "interface ") != null or
+                       std.mem.indexOf(u8, src, "class ") != null;
+            }
+        }.detect,
     });
 
     var project_instance = try Project.init(allocator, &lang_registry);

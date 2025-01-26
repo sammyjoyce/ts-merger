@@ -16,6 +16,7 @@ pub const LanguageMetadata = struct {
     extensions: []const []const u8,
     parser_create: *const fn (std.mem.Allocator) anyerror!*tree_sitter.Parser,
     node_types: NodeTypeInfo,
+    detect_content: *const fn ([]const u8) bool,
 };
 
 pub const NodeTypeInfo = struct {
@@ -70,13 +71,9 @@ pub const LanguageRegistry = struct {
     }
 
     fn detectByContent(self: *const LanguageRegistry, source: []const u8) ?*const LanguageMetadata {
-        // Simple heuristic-based detection
         for (self.languages.items) |*lang| {
-            if (std.mem.indexOf(u8, source, "interface ")) |_| {
-                if (std.mem.eql(u8, lang.name, "typescript")) return lang;
-            }
-            if (std.mem.indexOf(u8, source, "class ")) |_| {
-                if (std.mem.eql(u8, lang.name, "javascript")) return lang;
+            if (lang.detect_content(source)) {
+                return lang;
             }
         }
         return null;
