@@ -37,14 +37,9 @@ pub const TypeScriptParser = struct {
     pub fn parse(self: *TypeScriptParser, source: []const u8) !*Tree {
         if (source.len == 0) return error.EmptySource;
         if (source.len > std.math.maxInt(u32)) return error.SourceTooLarge;
-        
-        const tree = tree_sitter.ts_parser_parse_string(
-            self.parser,
-            null,
-            source.ptr,
-            @intCast(source.len)
-        ) orelse return error.ParseError;
-        
+
+        const tree = tree_sitter.ts_parser_parse_string(self.parser, null, source.ptr, @intCast(source.len)) orelse return error.ParseError;
+
         return tree;
     }
 };
