@@ -1,8 +1,8 @@
 const std = @import("std");
 
-pub const Language = opaque {};
-pub const Parser = opaque {};
-pub const Tree = opaque {};
+pub const TSLanguage = opaque {};
+pub const TSParser = opaque {};
+pub const TSTree = opaque {};
 
 pub const Point = extern struct {
     row: u32,
@@ -16,10 +16,10 @@ pub const Point = extern struct {
     }
 };
 
-pub const Node = extern struct {
+pub const TSNode = extern struct {
     context: [4]u32 align(4),
     id: u32,
-    tree: ?*const Tree,
+    tree: ?*const TSTree,
 };
 
 pub const TreeCursor = extern struct {
@@ -45,7 +45,7 @@ pub const LanguageParserInterface = struct {
 };
 
 pub const Parser = struct {
-    ptr: *Parser,
+    ptr: *TSParser,
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) Error!Parser {
@@ -65,7 +65,7 @@ pub const Parser = struct {
 };
 
 pub const Tree = struct {
-    ptr: *Tree,
+    ptr: *TSTree,
     parser: *const Parser,
 
     pub fn deinit(self: Tree) void {
@@ -81,7 +81,7 @@ pub const Tree = struct {
 };
 
 pub const Node = struct {
-    ptr: Node,
+    ptr: TSNode,
     tree: *const Tree,
 
     pub fn childCount(self: Node) u32 {
@@ -102,9 +102,9 @@ pub const Node = struct {
 };
 
 /// Tree-sitter parser functions
-pub extern fn ts_parser_new() ?*Parser;
-pub extern fn ts_parser_delete(parser: *Parser) void;
-pub extern fn ts_parser_set_language(parser: *Parser, language: *const Language) bool;
+pub extern fn ts_parser_new() ?*TSParser;
+pub extern fn ts_parser_delete(parser: *TSParser) void;
+pub extern fn ts_parser_set_language(parser: *TSParser, language: *const TSLanguage) bool;
 pub extern fn ts_parser_parse_string(parser: *Parser, old_tree: ?*Tree, string: [*]const u8, length: u32) ?*Tree;
 pub extern fn ts_parser_parse(parser: *Parser, old_tree: ?*const Tree, input: *const Input) ?*Tree;
 pub extern fn ts_parser_set_included_ranges(parser: *Parser, ranges: [*]const Range, length: u32) bool;
