@@ -11,6 +11,12 @@ pub const LanguageError = error{
     UnknownLanguage,
 };
 
+pub const Language = enum {
+    TypeScript,
+    TSX,
+    JavaScript,
+};
+
 pub const LanguageMetadata = struct {
     name: []const u8,
     extensions: []const []const u8,
