@@ -19,7 +19,7 @@ pub const TypeScriptParser = struct {
 
         const language = tree_sitter_typescript();
         try parser.setLanguage(language);
-        
+
         return .{
             .parser = parser,
             .language = language,
@@ -34,17 +34,9 @@ pub const TypeScriptParser = struct {
         if (source.len == 0) return Error.InvalidSource;
         if (source.len > std.math.maxInt(u32)) return Error.InvalidSource;
 
-        const tree_ptr = ts_parser_parse_string(
-            self.parser.ptr,
-            null,
-            source.ptr,
-            @intCast(source.len)
-        ) orelse return Error.ParseFailure;
+        const tree_ptr = ts_parser_parse_string(self.parser.ptr, null, source.ptr, @intCast(source.len)) orelse return Error.ParseFailure;
 
-        return Tree{
-            .ptr = tree_ptr,
-            .parser = &self.parser
-        };
+        return Tree{ .ptr = tree_ptr, .parser = &self.parser };
     }
 };
 

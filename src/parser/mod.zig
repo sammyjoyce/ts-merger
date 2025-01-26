@@ -52,7 +52,7 @@ pub const ParserImpl = struct {
 
 test "parser memory management - basic" {
     const allocator = testing.allocator;
-    var ts_parser_impl = try tree_sitter_ts.TypeScriptParser.init(allocator);
+    var ts_parser_impl = try bindings.TreeSitter.ts_parser_new();
     defer ts_parser_impl.deinit();
     var ts_parser = Parser.init(allocator, ts_parser_impl);
     defer ts_parser.deinit();

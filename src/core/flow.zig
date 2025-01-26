@@ -219,10 +219,12 @@ fn detectCycleDfs(allocator: std.mem.Allocator, start: *ast_types.Node) ![]const
 
 const testing = std.testing;
 const tree_sitter_ts = @import("../bindings/tree_sitter_typescript.zig");
+const parser_mod = @import("../parser/mod.zig");
+const Logger = @import("../utils/log.zig").Logger;
 
 test "cyclic dependency detection" {
     const allocator = testing.allocator;
-    var ts_parser_impl = try ts.TypeScriptParser.init(allocator);
+    var ts_parser_impl = try tree_sitter_ts.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
 
     var parser = parser_mod.Parser.init(allocator, ts_parser_impl, &typescript.interface);
@@ -239,5 +241,6 @@ test "cyclic dependency detection" {
     ;
 
     const root = try parser.parse(cyclic_source);
-    try testing.expectError(error.CyclicDependency, flow_graph.addNode(root));
+    defer root.deinit();
+    try testing.expectError(error.CyclicDependency, analyze(allocator, cyclic_source));
 }
