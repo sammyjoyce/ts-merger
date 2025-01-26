@@ -13,11 +13,17 @@ pub const Project = struct {
 
     pub fn init(allocator: std.mem.Allocator) !Project {
         var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+        errdefer ts_parser_impl.deinit();
+
         var parser = parser_mod.Parser.init(allocator, ts_parser_impl, &typescript.interface);
+        errdefer parser.deinit();
+
+        var flow_instance = try flow.Flow.init(allocator);
+        errdefer flow_instance.deinit();
 
         return .{
             .allocator = allocator,
-            .flow = try flow.Flow.init(allocator),
+            .flow = flow_instance,
             .parser = parser,
             .owned_nodes = std.ArrayList(*ast_types.Node).init(allocator),
         };

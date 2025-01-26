@@ -121,9 +121,20 @@ pub const Node = struct {
     pub fn deinit(self: *Node) void {
         for (self.children.items) |child| {
             child.deinit();
+            self.allocator.destroy(child);
         }
         self.children.deinit();
+
+        for (self.dependencies.items) |dep| {
+            dep.deinit();
+            self.allocator.destroy(dep);
+        }
         self.dependencies.deinit();
+
+        for (self.dependents.items) |dependent| {
+            dependent.deinit();
+            self.allocator.destroy(dependent);
+        }
         self.dependents.deinit();
     }
 };

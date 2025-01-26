@@ -1,6 +1,6 @@
 const std = @import("std");
 const tree_sitter = @import("tree_sitter");
-const tree_sitter_typescript = @import("tree_sitter_typescript");
+const tree_sitter_ts = @import("../bindings/tree_sitter_typescript.zig");
 const ast_types = @import("ast_types");
 const testing = std.testing;
 const typescript = @import("../bindings/tree_sitter_typescript.zig");
@@ -54,7 +54,7 @@ pub const ParserImpl = struct {
 
 test "parser memory management - basic" {
     const allocator = testing.allocator;
-    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    var ts_parser_impl = try tree_sitter_ts.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
     var ts_parser = Parser.init(allocator, ts_parser_impl);
     defer ts_parser.deinit();
@@ -82,7 +82,7 @@ test "parser memory management - basic" {
 
 test "parser error handling - basic" {
     const allocator = testing.allocator;
-    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    var ts_parser_impl = try tree_sitter_ts.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
     var ts_parser = Parser.init(allocator, ts_parser_impl);
     defer ts_parser.deinit();
@@ -100,7 +100,7 @@ test "parser error handling - basic" {
 
 test "parser memory management - advanced" {
     const allocator = testing.allocator;
-    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    var ts_parser_impl = try tree_sitter_ts.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
     var ts_parser = Parser.init(allocator, ts_parser_impl);
     defer ts_parser.deinit();
@@ -128,7 +128,7 @@ test "parser memory management - advanced" {
 
 test "parser error handling - advanced" {
     const allocator = testing.allocator;
-    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    var ts_parser_impl = try tree_sitter_ts.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
     var ts_parser = Parser.init(allocator, ts_parser_impl);
     defer ts_parser.deinit();
@@ -145,7 +145,7 @@ test "parser error handling - advanced" {
 }
 test "parser memory management - edge cases" {
     const allocator = testing.allocator;
-    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    var ts_parser_impl = try tree_sitter_ts.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
     var ts_parser = Parser.init(allocator, ts_parser_impl);
     defer ts_parser.deinit();
@@ -173,7 +173,7 @@ test "parser memory management - edge cases" {
 
 test "parser error handling - edge cases" {
     const allocator = testing.allocator;
-    var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
+    var ts_parser_impl = try tree_sitter_ts.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
     var ts_parser = Parser.init(allocator, ts_parser_impl);
     defer ts_parser.deinit();
