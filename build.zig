@@ -219,6 +219,7 @@ pub fn build(b: *std.Build) !void {
     const gen_cmd = b.addRunArtifact(gen);
     gen_cmd.addArg("--language=typescript");
     gen_cmd.addArg("--output=src/bindings/generated/typescript.zig");
+    gen_cmd.addArg("--parser-output=src/bindings/generated/TypeScriptParser.zig");
 
     // Create modules for the final executable
     const tree_sitter_module = b.createModule(.{
