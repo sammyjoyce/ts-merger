@@ -4,7 +4,7 @@ const json = std.json;
 const Allocator = std.mem.Allocator;
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};    
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
@@ -12,9 +12,11 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
 
     const language = blk: {
-        for (args) |arg, i| {
-            if (std.mem.eql(u8, arg, "--language") and i+1 < args.len) {
-                const lang = args[i+1];
+        var i: usize = 0;
+        while (i < args.len) : (i += 1) {
+            const arg = args[i];
+            if (std.mem.eql(u8, arg, "--language") and i + 1 < args.len) {
+                const lang = args[i + 1];
                 if (!std.mem.eql(u8, lang, "typescript") and !std.mem.eql(u8, lang, "tsx")) {
                     return error.UnsupportedLanguage;
                 }
@@ -25,18 +27,22 @@ pub fn main() !void {
     };
 
     const output_path = blk: {
-        for (args) |arg, i| {
-            if (std.mem.eql(u8, arg, "--output") and i+1 < args.len) {
-                break :blk args[i+1];
+        var i: usize = 0;
+        while (i < args.len) : (i += 1) {
+            const arg = args[i];
+            if (std.mem.eql(u8, arg, "--output") and i + 1 < args.len) {
+                break :blk args[i + 1];
             }
         }
         return error.MissingOutputArg;
     };
 
     const parser_output_path = blk: {
-        for (args) |arg, i| {
-            if (std.mem.eql(u8, arg, "--parser-output") and i+1 < args.len) {
-                break :blk args[i+1];
+        var i: usize = 0;
+        while (i < args.len) : (i += 1) {
+            const arg = args[i];
+            if (std.mem.eql(u8, arg, "--parser-output") and i + 1 < args.len) {
+                break :blk args[i + 1];
             }
         }
         return error.MissingParserOutputArg;
@@ -53,20 +59,14 @@ pub fn main() !void {
 }
 
 fn readGrammarFile(allocator: Allocator, lang: []const u8) ![]const u8 {
-    const path = try std.fmt.allocPrint(allocator,
-        "pkg/tree-sitter-{s}/{s}/src/grammar.json",
-        .{lang, lang}
-    );
+    const path = try std.fmt.allocPrint(allocator, "pkg/tree-sitter-{s}/{s}/src/grammar.json", .{ lang, lang });
     defer allocator.free(path);
 
     return try fs.cwd().readFileAlloc(allocator, path, 1 << 20);
 }
 
 fn parseNodeTypes(allocator: Allocator, lang: []const u8) !json.Parsed(NodeTypes) {
-    const path = try std.fmt.allocPrint(allocator,
-        "pkg/tree-sitter-{s}/{s}/src/node-types.json",
-        .{lang, lang}
-    );
+    const path = try std.fmt.allocPrint(allocator, "pkg/tree-sitter-{s}/{s}/src/node-types.json", .{ lang, lang });
     defer allocator.free(path);
 
     const data = try fs.cwd().readFileAlloc(allocator, path, 1 << 20);
@@ -92,12 +92,7 @@ const FieldDef = struct {
     types: []const []const u8,
 };
 
-fn generateZigBindings(
-    allocator: Allocator,
-    node_types: json.Parsed(NodeTypes),
-    grammar_json: []const u8,
-    output_path: []const u8
-) !void {
+fn generateZigBindings(allocator: Allocator, node_types: json.Parsed(NodeTypes), grammar_json: []const u8, output_path: []const u8) !void {
     var out = try fs.cwd().createFile(output_path, .{});
     defer out.close();
 
@@ -119,9 +114,8 @@ fn generateZigBindings(
         }
     }
 
-    try w.writeAll("};
+    try w.writeAll("};\n");
 
-");
     try w.writeAll(
         \\pub const Grammar = struct {
         \\    pub const rules = @embedFile("grammar.json");
@@ -166,21 +160,27 @@ fn generateParserImplementation(
         \\const ast_types = @import("../../core/ast/ast_types.zig");
         \\const NodeType = @import("typescript.zig").NodeType;
         \\
-        const lang_suffix = if (std.mem.eql(u8, language, "tsx")) "TSX" else "TypeScript";
-        try w.print(
-        \\pub const {s}Parser = struct {{
+    );
+
+    // Decide which C function we call to get the language pointer
+    const function_name = if (std.mem.eql(u8, language, "tsx")) "tree_sitter_tsx" else "tree_sitter_typescript";
+
+    // Print out a single LanguageParser type that calls the above function_name
+    try w.print(
+        \\pub const LanguageParser = struct {
         \\    parser: *tree_sitter.Parser,
         \\    language: *const tree_sitter.Language,
         \\    allocator: std.mem.Allocator,
         \\
-        , .{lang_suffix});
         \\    pub fn init(allocator: std.mem.Allocator) !*@This() {
         \\        const self = try allocator.create(@This());
         \\        self.parser = try tree_sitter.Parser.init(allocator);
         \\        self.allocator = allocator;
-        \\        
-        \\        const lang = tree_sitter_typescript();
+        \\
+        \\        const lang = {s}();
         \\        try self.parser.setLanguage(lang);
+        \\
+        \\        self.language = lang;
         \\        return self;
         \\    }
         \\
@@ -194,20 +194,20 @@ fn generateParserImplementation(
         \\        if (source.len > std.math.maxInt(u32)) return error.SourceTooLarge;
         \\
         \\        const tree = tree_sitter.ts_parser_parse_string(
-        \\            self.parser.ptr, 
-        \\            null, 
-        \\            source.ptr, 
-        \\            @intCast(source.len)
+        \\            self.parser.ptr,
+        \\            null,
+        \\            source.ptr,
+        \\            @intCast(source.len),
         \\        ) orelse return error.ParseFailure;
         \\        defer tree_sitter.ts_tree_delete(tree);
         \\
+        \\        // Create and populate the root AST node
         \\        const root = try ast_types.Node.init(self.allocator);
         \\        errdefer root.deinit();
-        \\
         \\        root.kind = .{ .base = .Program, .custom_kind = null, .source = null };
         \\        root.children = std.ArrayList(*ast_types.Node).init(self.allocator);
         \\
-    );
+    , .{function_name});
 
     // Generate node type handling
     for (node_types.value.types) |nt| {
@@ -220,7 +220,7 @@ fn generateParserImplementation(
                 \\            try root.children.append(child);
                 \\        }}
                 \\
-            , .{clean_name, clean_name, clean_name});
+            , .{ clean_name, clean_name, clean_name });
         }
     }
 
@@ -250,7 +250,7 @@ fn generateParserImplementation(
             const clean_name = try sanitizeTypeName(allocator, nt.type);
             try w.print(
                 \\            .{s} => .{s},
-            , .{clean_name, mapBaseKind(nt.type)});
+            , .{ clean_name, mapBaseKind(nt.type) });
         }
     }
 
@@ -264,9 +264,13 @@ fn generateParserImplementation(
         \\    }}
         \\}};
         \\
-        \\extern fn tree_sitter_typescript() *const tree_sitter.Language;
-        \\
     );
+
+    // Add the extern declaration for the appropriate language function
+    try w.print(
+        \\extern fn {s}() *const tree_sitter.Language;
+        \\
+    , .{function_name});
 
     try bw.flush();
 }

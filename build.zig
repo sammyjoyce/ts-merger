@@ -26,12 +26,8 @@ fn addTests(
     // This step is the global container for all tests.
     const test_step = b.step("test", "Run all tests");
 
-    // Get libxev dependency
+    // Watcher functionality is removed
     const enable_watcher = false;
-    const libxev_module = if (enable_watcher) blk: {
-        const libxev_dep = b.dependency("libxev", .{});
-        break :blk libxev_dep.module("libxev");
-    } else null;
 
     // Create modules needed for tests
     const bindings_module = b.createModule(.{
@@ -112,9 +108,7 @@ fn addTests(
         .{
             .name = "watcher",
             .path = "src/watcher/mod.zig",
-            .modules = &.{
-                .{ .name = "libxev", .module = libxev_module.? },
-            },
+            .modules = &.{},
             .needs_cpp = true,
         },
     } else [_]TestConfig{};

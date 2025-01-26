@@ -28,13 +28,13 @@ pub const Flow = struct {
 pub fn analyze(allocator: std.mem.Allocator, input: []const u8) !void {
     var ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
     defer ts_parser_impl.deinit();
-    
+
     var parser = Parser.init(allocator, ts_parser_impl, &typescript.interface);
     defer parser.deinit();
-    
+
     const node = try parser.parse(input);
     defer node.deinit();
-    
+
     if (node.kind.kind == .unknown) {
         Logger.scoped(.Warning, "flow").warn("Skipping unknown node type", .{});
         return;
@@ -189,7 +189,7 @@ fn writeNode(self: *Flow, writer: anytype, node: *ast_types.Node) !void {
             std.debug.print("Unhandled node kind: {s}\n", .{@tagName(node.kind.kind)});
         },
     }
-};
+}
 
 fn detectCycleDfs(allocator: std.mem.Allocator, start: *ast_types.Node) ![]const u8 {
     var visited = std.AutoHashMap(*ast_types.Node, void).init(allocator);
