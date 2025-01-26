@@ -160,16 +160,20 @@ fn generateParserImplementation(
     const w = bw.writer();
 
     try w.writeAll(
-        \\// Auto-generated TypeScript parser implementation
+        \\// Auto-generated parser implementation
         \\const std = @import("std");
         \\const tree_sitter = @import("../bindings/tree_sitter.zig");
         \\const ast_types = @import("../../core/ast/ast_types.zig");
         \\const NodeType = @import("typescript.zig").NodeType;
         \\
-        \\pub const TypeScriptParser = struct {
+        const lang_suffix = if (std.mem.eql(u8, language, "tsx")) "TSX" else "TypeScript";
+        try w.print(
+        \\pub const {s}Parser = struct {{
         \\    parser: *tree_sitter.Parser,
+        \\    language: *const tree_sitter.Language,
         \\    allocator: std.mem.Allocator,
         \\
+        , .{lang_suffix});
         \\    pub fn init(allocator: std.mem.Allocator) !*@This() {
         \\        const self = try allocator.create(@This());
         \\        self.parser = try tree_sitter.Parser.init(allocator);
