@@ -9,6 +9,7 @@ pub const LanguageError = error{
     InvalidSource,
     InvalidExtension,
     UnknownLanguage,
+    ParseError, // Added for grammar.json parsing failures and other language-specific parse errors
 };
 
 pub const Language = enum {

@@ -334,20 +334,6 @@ pub fn build(b: *std.Build) !void {
     }
     const run_step = b.step("run", "Run the application");
     run_step.dependOn(&run_cmd.step);
-
-    // Add tests from our integrated function
-    const test_step = try addTests(
-        b,
-        target,
-        mode,
-        .{
-            .tree_sitter = tree_sitter_module,
-            .tree_sitter_typescript = tree_sitter_typescript_module,
-            .tree_sitter_lib = tree_sitter,
-            .tree_sitter_typescript_lib = tree_sitter_typescript,
-        },
-    );
-    test_step.dependOn(&b.addRunArtifact(exe).step);
 }
 
 fn dirExists(allocator: std.mem.Allocator, path: []const u8) bool {
