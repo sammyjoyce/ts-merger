@@ -14,7 +14,7 @@ pub fn main() !void {
     defer args.deinit();
 
     _ = args.next(); // Skip executable name
-    
+
     var language: []const u8 = undefined;
     var output_path: []const u8 = undefined;
     var node_types_path: []const u8 = undefined;
