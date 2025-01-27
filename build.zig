@@ -228,56 +228,14 @@ pub fn build(b: *std.Build) !void {
     tree_sitter.installHeadersDirectory(.{ .cwd_relative = tree_sitter_path }, "include/tree_sitter", .{});
     tree_sitter.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
 
-    // Build the tree-sitter-typescript library
-    const tree_sitter_typescript = b.addStaticLibrary(.{
-        .name = "tree-sitter-typescript",
-        .target = target,
-        .optimize = mode,
-    });
-
-    const ts_parser_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "parser.c" });
-    defer b.allocator.free(ts_parser_c);
-
-    const ts_scanner_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "scanner.c" });
-    defer b.allocator.free(ts_scanner_c);
-
-    const ts_include_path = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src" });
-    defer b.allocator.free(ts_include_path);
-
-    tree_sitter_typescript.addCSourceFiles(.{
-        .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
-        .files = &.{ ts_parser_c, ts_scanner_c },
-    });
-
-    // Add TSX library
-    const tree_sitter_tsx = b.addStaticLibrary(.{
-        .name = "tree-sitter-tsx",
-        .target = target,
-        .optimize = mode,
-    });
-
-    const tsx_parser_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx", "src", "parser.c" });
-    defer b.allocator.free(tsx_parser_c);
-
-    const tsx_scanner_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx", "src", "scanner.c" });
-    defer b.allocator.free(tsx_scanner_c);
-
-    const tsx_include_path = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx", "src" });
-    defer b.allocator.free(tsx_include_path);
-
-    tree_sitter_tsx.addCSourceFiles(.{
-        .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
-        .files = &.{ tsx_parser_c, tsx_scanner_c },
-    });
-    tree_sitter_tsx.linkLibrary(tree_sitter);
-    tree_sitter_tsx.linkLibrary(tree_sitter_typescript);
-    tree_sitter_tsx.linkLibC();
-    tree_sitter_tsx.installHeadersDirectory(.{ .cwd_relative = tsx_include_path }, "include/tree_sitter_tsx", .{});
-    tree_sitter_typescript.installHeadersDirectory(.{ .cwd_relative = ts_include_path }, "include/tree_sitter_typescript", .{});
-    tree_sitter_typescript.addIncludePath(.{ .cwd_relative = ts_include_path });
-    tree_sitter_typescript.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
+    // Build the tree-sitter-typescript and tree-sitter-tsx libraries using the helper function
+    const tree_sitter_typescript = try addTreeSitterGrammar(b, target, mode, try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript" }), "typescript");
     tree_sitter_typescript.linkLibrary(tree_sitter);
     tree_sitter_typescript.linkLibCpp();
+
+    const tree_sitter_tsx = try addTreeSitterGrammar(b, target, mode, try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx" }), "tsx");
+    tree_sitter_tsx.linkLibrary(tree_sitter);
+    tree_sitter_tsx.linkLibrary(tree_sitter_typescript);
 
     // Add grammar generation step
     const gen = b.addExecutable(.{
