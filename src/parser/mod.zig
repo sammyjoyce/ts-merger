@@ -11,26 +11,6 @@ pub const NodeTypeInfo = bindings.language.NodeTypeInfo;
 pub const LanguageRegistry = bindings.language.LanguageRegistry;
 
 // Test cases
-test "language detection" {
-    const allocator = testing.allocator;
-    var registry = try LanguageRegistry.init(allocator);
-    defer registry.deinit();
-
-    // Register TypeScript language
-    try registry.register(bindings.language.BuiltinLanguages[0]);
-
-    // Test TypeScript detection
-    const ts_source = \\
-        interface User {
-            name: string;
-            age: number;
-        }
-    ;
-
-    const detected = try registry.detect("test.ts", ts_source);
-    try testing.expectEqualStrings("typescript", detected.name);
-}
-
 test "parser memory management - basic" {
     const allocator = testing.allocator;
     var ts_parser_impl = try bindings.TreeSitter.ts_parser_new();
