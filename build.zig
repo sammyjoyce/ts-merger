@@ -218,7 +218,9 @@ pub fn build(b: *std.Build) !void {
         .files = &.{ tsx_parser_c, tsx_scanner_c },
     });
     tree_sitter_tsx.linkLibrary(tree_sitter);
+    tree_sitter_tsx.linkLibrary(tree_sitter_typescript);
     tree_sitter_tsx.linkLibC();
+    tree_sitter_tsx.installHeadersDirectory(.{ .cwd_relative = tsx_include_path }, "include/tree_sitter_tsx", .{});
     tree_sitter_typescript.installHeadersDirectory(.{ .cwd_relative = ts_include_path }, "include/tree_sitter_typescript", .{});
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = ts_include_path });
     tree_sitter_typescript.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
@@ -261,15 +263,12 @@ pub fn build(b: *std.Build) !void {
     gen_tsx_cmd.addArg("--node-types");
     gen_tsx_cmd.addArg(tsx_node_types);
 
-    // Add generation step
+    // Add generation step with proper dependencies
     const gen_step = b.step("generate", "Generate parser bindings");
     gen_step.dependOn(&gen_ts_cmd.step);
     gen_step.dependOn(&gen_tsx_cmd.step);
 
-    // Add generation step dependencies
-    const gen_step = b.step("generate", "Generate parser bindings");
-    gen_step.dependOn(&gen_ts_cmd.step);
-    gen_step.dependOn(&gen_tsx_cmd.step);
+    // Ensure main executable and tests depend on generation
     exe.step.dependOn(gen_step);
     test_step.dependOn(gen_step);
 

@@ -29,6 +29,14 @@ pub fn main() !void {
         }
     }
 
+    if (!@hasDecl(@This(), "language") or
+        !@hasDecl(@This(), "output_path") or 
+        !@hasDecl(@This(), "node_types_path")) 
+    {
+        std.debug.print("Usage: grammar_gen --language <lang> --output <path> --node-types <node-types.json>\n", .{});
+        return error.MissingArguments;
+    }
+
     try generateGrammarBindings(allocator, node_types_path, output_path);
 }
 
