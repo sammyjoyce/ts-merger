@@ -1,111 +1,55 @@
+// This file is responsible for generating Zig bindings from Tree-sitter grammar
 const std = @import("std");
 const fs = std.fs;
 const json = std.json;
-const Allocator = std.mem.Allocator;
+const mem = std.mem;
+const Allocator = mem.Allocator;
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+pub const GrammarError = error{
+    InvalidNodeType,
+    MissingRequiredField,
+    InvalidFieldType,
+    InvalidGrammarJson,
+    InvalidNodeTypeMapping,
+};
 
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
+pub fn generateGrammarBindings(allocator: Allocator, node_types_path: []const u8, output_path: []const u8) !void {
+    // Read and parse the node-types.json file
+    const node_types_content = try fs.cwd().readFileAlloc(allocator, node_types_path, std.math.maxInt(usize));
+    defer allocator.free(node_types_content);
 
-    const language = blk: {
-        var i: usize = 0;
-        while (i < args.len) : (i += 1) {
-            const arg = args[i];
-            if (std.mem.eql(u8, arg, "--language") and i + 1 < args.len) {
-                const lang = args[i + 1];
-                if (!std.mem.eql(u8, lang, "typescript") and !std.mem.eql(u8, lang, "tsx")) {
-                    return error.UnsupportedLanguage;
-                }
-                break :blk lang;
-            }
-        }
-        return error.MissingLanguageArg;
-    };
-
-    const output_path = blk: {
-        var i: usize = 0;
-        while (i < args.len) : (i += 1) {
-            const arg = args[i];
-            if (std.mem.eql(u8, arg, "--output") and i + 1 < args.len) {
-                break :blk args[i + 1];
-            }
-        }
-        return error.MissingOutputArg;
-    };
-
-    const parser_output_path = blk: {
-        var i: usize = 0;
-        while (i < args.len) : (i += 1) {
-            const arg = args[i];
-            if (std.mem.eql(u8, arg, "--parser-output") and i + 1 < args.len) {
-                break :blk args[i + 1];
-            }
-        }
-        return error.MissingParserOutputArg;
-    };
-
-    const grammar_json = try readGrammarFile(allocator, language);
-    defer allocator.free(grammar_json);
-
-    const node_types = try parseNodeTypes(allocator, language);
+    var node_types = try json.parseFromSlice(NodeTypes, allocator, node_types_content, .{});
     defer node_types.deinit();
 
-    try generateZigBindings(allocator, node_types, grammar_json, output_path);
-    try generateParserImplementation(allocator, node_types, parser_output_path);
-}
-
-fn readGrammarFile(allocator: Allocator, lang: []const u8) ![]const u8 {
-    const path = try std.fmt.allocPrint(allocator, "pkg/tree-sitter-{s}/{s}/src/grammar.json", .{ lang, lang });
-    defer allocator.free(path);
-
-    return try fs.cwd().readFileAlloc(allocator, path, 1 << 20);
-}
-
-fn parseNodeTypes(allocator: Allocator, lang: []const u8) !json.Parsed(NodeTypes) {
-    const path = try std.fmt.allocPrint(allocator, "pkg/tree-sitter-{s}/{s}/src/node-types.json", .{ lang, lang });
-    defer allocator.free(path);
-
-    const data = try fs.cwd().readFileAlloc(allocator, path, 1 << 20);
-    defer allocator.free(data);
-
-    return json.parseFromSlice(NodeTypes, allocator, data, .{});
-}
-
-const NodeTypes = struct {
-    types: []const NodeTypeDef,
-};
-
-const NodeTypeDef = struct {
-    type: []const u8,
-    named: bool,
-    fields: ?[]const FieldDef,
-};
-
-const FieldDef = struct {
-    name: []const u8,
-    multiple: bool,
-    required: bool,
-    types: []const []const u8,
-};
-
-fn generateZigBindings(allocator: Allocator, node_types: json.Parsed(NodeTypes), grammar_json: []const u8, output_path: []const u8) !void {
+    // Create output file
     var out = try fs.cwd().createFile(output_path, .{});
     defer out.close();
-
     var bw = std.io.bufferedWriter(out.writer());
     const w = bw.writer();
 
-    try w.writeAll(
-        \\// Auto-generated from Tree-sitter grammar definitions
-        \\// DO NOT EDIT DIRECTLY
-        \\
-        \\pub const NodeType = enum {
-        \\
-    );
+    try w.writeAll("// Generated code - do not edit\n\n");
+    try w.writeAll("const std = @import(\"std\");\n");
+    try w.writeAll("const bindings = @import(\"../bindings/mod.zig\");\n");
+    try w.writeAll("const ast_types = @import(\"../core/ast/ast_types.zig\");\n\n");
+
+    // Generate node type mapping
+    try w.writeAll("pub const NodeTypes = struct {\n");
+    for (node_types.value.types) |node_type| {
+        if (!node_type.named) continue;
+        try w.print("    pub const {s} = \"{s}\";\n", .{ std.ascii.upperString(node_type.type), node_type.type });
+
+        // Generate field accessors if available
+        if (node_type.fields) |fields| {
+            try w.print("    pub const {s}_FIELDS = struct {{\n", .{std.ascii.upperString(node_type.type)});
+            for (fields.types) |field_type| {
+                try w.print("        pub const {s}: bool = {s};\n", .{ std.ascii.upperString(field_type.type), if (fields.required) "true" else "false" });
+            }
+            try w.writeAll("    };\n");
+        }
+    }
+    try w.writeAll("};");
+
+    try w.writeAll("\n\npub const NodeType = enum {\n");
 
     for (node_types.value.types) |nt| {
         if (nt.named) {
@@ -114,163 +58,89 @@ fn generateZigBindings(allocator: Allocator, node_types: json.Parsed(NodeTypes),
         }
     }
 
-    try w.writeAll("};\n");
+    try w.writeAll("};");
 
-    try w.writeAll(
-        \\pub const Grammar = struct {
-        \\    pub const rules = @embedFile("grammar.json");
-        \\};
-        \\
-    );
+    try w.writeAll("\n\npub const Grammar = struct {\n");
+    try w.writeAll("    pub const rules = @embedFile(\"grammar.json\");\n");
+    try w.writeAll("};");
 
     try bw.flush();
 }
 
 fn mapBaseKind(node_type: []const u8) []const u8 {
-    return if (std.mem.endsWith(u8, node_type, "_declaration"))
-        "Declaration"
-    else if (std.mem.startsWith(u8, node_type, "export_"))
-        "Export"
-    else if (std.mem.startsWith(u8, node_type, "import_"))
-        "Import"
-    else
-        "Expression";
+    if (std.mem.endsWith(u8, node_type, "_declaration")) return "Declaration";
+    if (std.mem.startsWith(u8, node_type, "export_")) return "Export";
+    if (std.mem.startsWith(u8, node_type, "import_")) return "Import";
+    if (std.mem.startsWith(u8, node_type, "class_")) return "Class";
+    if (std.mem.startsWith(u8, node_type, "interface_")) return "Interface";
+    if (std.mem.startsWith(u8, node_type, "method_")) return "Method";
+    if (std.mem.startsWith(u8, node_type, "property_")) return "Property";
+    if (std.mem.startsWith(u8, node_type, "type_")) return "Type";
+    if (std.mem.startsWith(u8, node_type, "function_")) return "Function";
+    return "Unknown";
 }
 
 fn sanitizeTypeName(allocator: Allocator, name: []const u8) ![]const u8 {
-    var cleaned = try std.mem.replaceOwned(u8, allocator, name, "typescript/", "");
-    cleaned = try std.mem.replaceOwned(u8, allocator, cleaned, "_", "");
-    return cleaned;
-}
+    var result = std.ArrayList(u8).init(allocator);
+    errdefer result.deinit();
 
-fn generateParserImplementation(
-    allocator: Allocator,
-    node_types: json.Parsed(NodeTypes),
-    output_path: []const u8,
-) !void {
-    var out = try fs.cwd().createFile(output_path, .{});
-    defer out.close();
-    var bw = std.io.bufferedWriter(out.writer());
-    const w = bw.writer();
-
-    try w.writeAll(
-        \\// Auto-generated parser implementation
-        \\const std = @import("std");
-        \\const tree_sitter = @import("../bindings/tree_sitter.zig");
-        \\const ast_types = @import("../../core/ast/ast_types.zig");
-        \\const NodeType = @import("typescript.zig").NodeType;
-        \\
-    );
-
-    // Decide which C function we call to get the language pointer
-    const function_name = if (std.mem.eql(u8, language, "tsx")) "tree_sitter_tsx" else "tree_sitter_typescript";
-
-    // Print out a single LanguageParser type that calls the above function_name
-    try w.print(
-        \\pub const LanguageParser = struct {
-        \\    parser: *tree_sitter.Parser,
-        \\    language: *const tree_sitter.Language,
-        \\    allocator: std.mem.Allocator,
-        \\
-        \\    pub fn init(allocator: std.mem.Allocator) !*@This() {
-        \\        const self = try allocator.create(@This());
-        \\        self.parser = try tree_sitter.Parser.init(allocator);
-        \\        self.allocator = allocator;
-        \\
-        \\        const lang = {s}();
-        \\        try self.parser.setLanguage(lang);
-        \\
-        \\        self.language = lang;
-        \\        return self;
-        \\    }
-        \\
-        \\    pub fn deinit(self: *@This()) void {
-        \\        self.parser.deinit();
-        \\        self.allocator.destroy(self);
-        \\    }
-        \\
-        \\    pub fn parse(self: *@This(), source: []const u8) !*ast_types.Node {
-        \\        if (source.len == 0) return error.EmptySource;
-        \\        if (source.len > std.math.maxInt(u32)) return error.SourceTooLarge;
-        \\
-        \\        const tree = tree_sitter.ts_parser_parse_string(
-        \\            self.parser.ptr,
-        \\            null,
-        \\            source.ptr,
-        \\            @intCast(source.len),
-        \\        ) orelse return error.ParseFailure;
-        \\        defer tree_sitter.ts_tree_delete(tree);
-        \\
-        \\        // Create and populate the root AST node
-        \\        const root = try ast_types.Node.init(self.allocator);
-        \\        errdefer root.deinit();
-        \\        root.kind = .{ .base = .Program, .custom_kind = null, .source = null };
-        \\        root.children = std.ArrayList(*ast_types.Node).init(self.allocator);
-        \\
-    , .{function_name});
-
-    // Generate node type handling
-    for (node_types.value.types) |nt| {
-        if (nt.named) {
-            const clean_name = try sanitizeTypeName(allocator, nt.type);
-            try w.print(
-                \\        const {s}_nodes = self.findNodesOfType(tree, .{s});
-                \\        for ({s}_nodes) |node| {{
-                \\            const child = try self.createAstNode(node, source);
-                \\            try root.children.append(child);
-                \\        }}
-                \\
-            , .{ clean_name, clean_name, clean_name });
+    var capitalize = true;
+    for (name) |c| {
+        if (c == '_') {
+            capitalize = true;
+            continue;
+        }
+        if (capitalize) {
+            try result.append(std.ascii.toUpper(c));
+            capitalize = false;
+        } else {
+            try result.append(c);
         }
     }
 
-    try w.writeAll(
-        \\        return root;
-        \\    }
-        \\
-        \\    fn createAstNode(self: *@This(), ts_node: tree_sitter.Node, source: []const u8) !*ast_types.Node {
-        \\        const node_type = blk: {{
-        \\            const type_str = tree_sitter.ts_node_type(ts_node) orelse return error.InvalidNode;
-        \\            inline for (@typeInfo(NodeType).Enum.fields) |field| {{
-        \\                if (std.mem.eql(u8, type_str, field.name)) {{
-        \\                    break :blk @field(NodeType, field.name);
-        \\                }}
-        \\            }}
-        \\            return error.UnknownNodeType;
-        \\        }};
-        \\
-        \\        const node = try ast_types.Node.init(self.allocator, "", .{{
-        \\            .base = switch (node_type) {{
-        \\
-    );
-
-    // Generate base kind mapping
-    for (node_types.value.types) |nt| {
-        if (nt.named) {
-            const clean_name = try sanitizeTypeName(allocator, nt.type);
-            try w.print(
-                \\            .{s} => .{s},
-            , .{ clean_name, mapBaseKind(nt.type) });
-        }
-    }
-
-    try w.writeAll(
-        \\                else => .unknown,
-        \\            }},
-        \\            .custom_kind = null,
-        \\            .source = try self.allocator.dupe(u8, source),
-        \\        }});
-        \\        return node;
-        \\    }}
-        \\}};
-        \\
-    );
-
-    // Add the extern declaration for the appropriate language function
-    try w.print(
-        \\extern fn {s}() *const tree_sitter.Language;
-        \\
-    , .{function_name});
-
-    try bw.flush();
+    return result.toOwnedSlice();
 }
+
+const NodeTypes = struct {
+    value: struct {
+        types: []const struct {
+            type: []const u8,
+            named: bool,
+            fields: ?struct {
+                multiple: bool,
+                required: bool,
+                types: []const struct {
+                    type: []const u8,
+                    named: bool,
+                },
+            },
+            children: ?struct {
+                multiple: bool,
+                required: bool,
+                types: []const struct {
+                    type: []const u8,
+                    named: bool,
+                },
+            },
+            subtypes: ?[]const struct {
+                type: []const u8,
+                named: bool,
+            },
+        },
+    },
+
+    pub fn deinit(self: @This()) void {
+        for (self.value.types) |node_type| {
+            if (node_type.fields) |fields| {
+                for (fields.types) |_| {} // Free memory if needed
+            }
+            if (node_type.children) |children| {
+                for (children.types) |_| {} // Free memory if needed
+            }
+            if (node_type.subtypes) |subtypes| {
+                for (subtypes) |_| {} // Free memory if needed
+            }
+        }
+        self.value.types.deinit();
+    }
+};

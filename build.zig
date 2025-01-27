@@ -232,6 +232,10 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = mode,
     });
+    gen.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
+    gen.linkLibrary(tree_sitter);
+    gen.linkLibrary(tree_sitter_typescript);
+    gen.linkLibC();
 
     const gen_ts_cmd = b.addRunArtifact(gen);
     gen_ts_cmd.addArg("--language=typescript");
@@ -247,8 +251,10 @@ pub fn build(b: *std.Build) !void {
     const tree_sitter_module = b.createModule(.{
         .root_source_file = .{ .cwd_relative = "src/bindings/tree_sitter.zig" },
     });
+
     const tree_sitter_typescript_module = b.createModule(.{
-        .root_source_file = .{ .cwd_relative = "src/bindings/tree_sitter_typescript.zig" },
+        .root_source_file = .{ .cwd_relative = "src/bindings/generated/typescript.zig" },
+        .imports = &.{.{ .name = "tree_sitter", .module = tree_sitter_module }},
     });
 
     // Create the main executable

@@ -9,24 +9,26 @@ pub const LanguageParser = language.LanguageParser;
 pub const LanguageError = language.LanguageError;
 
 pub fn NodeType(comptime lang: Language) type {
-    return struct {
-        pub const PROGRAM = "program";
-        pub const FUNCTION_DECL = "function_declaration";
-        pub const IDENTIFIER = "identifier";
-        pub const STRING = "string";
-        pub const NUMBER = "number";
-        pub const COMMENT = "comment";
-        pub const VARIABLE_DECL = "variable_declaration";
-        pub const CLASS_DECL = "class_declaration";
-        pub const INTERFACE_DECL = "interface_declaration";
-        pub const TYPE_ALIAS = "type_alias_declaration";
-        pub const ENUM_DECL = "enum_declaration";
-        pub const IMPORT_DECL = "import_declaration";
-        pub const EXPORT_DECL = "export_declaration";
-        pub const METHOD_DEFINITION = "method_definition";
-        pub const PROPERTY_DEFINITION = "property_definition";
-        pub const OBJECT = "object";
-        pub const ARRAY = "array";
+    return switch (lang) {
+        .TypeScript => @import("generated/typescript.zig").NodeType,
+        .TSX => @import("generated/tsx.zig").NodeType,
+        else => @compileError("Unsupported language"),
+    };
+}
+
+pub fn NodeTypes(comptime lang: Language) type {
+    return switch (lang) {
+        .TypeScript => @import("generated/typescript.zig").NodeTypes,
+        .TSX => @import("generated/tsx.zig").NodeTypes,
+        else => @compileError("Unsupported language"),
+    };
+}
+
+pub fn Grammar(comptime lang: Language) type {
+    return switch (lang) {
+        .TypeScript => @import("generated/typescript.zig").Grammar,
+        .TSX => @import("generated/tsx.zig").Grammar,
+        else => @compileError("Unsupported language"),
     };
 }
 
