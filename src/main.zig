@@ -60,7 +60,7 @@ fn mergeCommand(allocator: std.mem.Allocator, config: @import("commands/cli.zig"
     // Register languages here
     try lang_registry.register(.{
         .name = "typescript",
-        .extensions = &[_][]const u8{ "ts", "tsx" },
+        .extensions = &[_][]const u8{"ts"},
         .parser_create = &bindings.tree_sitter_typescript.TypeScriptParser.init,
         .node_types = .{
             .program = "program",
@@ -70,6 +70,32 @@ fn mergeCommand(allocator: std.mem.Allocator, config: @import("commands/cli.zig"
             .variable_decl = "variable_declaration",
             .import_decl = "import_statement",
             .export_decl = "export_statement",
+        },
+        .detect_content = struct {
+            fn detect(src: []const u8) bool {
+                return std.mem.indexOf(u8, src, "interface ") != null or
+                    std.mem.indexOf(u8, src, "class ") != null;
+            }
+        }.detect,
+    });
+
+    try lang_registry.register(.{
+        .name = "tsx",
+        .extensions = &[_][]const u8{"tsx"},
+        .parser_create = &bindings.tree_sitter_tsx.TSXParser.init,
+        .node_types = .{
+            .program = "program",
+            .interface_decl = "interface_declaration", 
+            .class_decl = "class_declaration",
+            .function_decl = "function_declaration",
+            .variable_decl = "variable_declaration",
+            .import_decl = "import_statement",
+            .export_decl = "export_statement",
+            .jsx_element = "jsx_element",
+            .jsx_opening_element = "jsx_opening_element",
+            .jsx_closing_element = "jsx_closing_element",
+            .jsx_self_closing_element = "jsx_self_closing_element",
+            .jsx_attribute = "jsx_attribute",
         },
         .detect_content = struct {
             fn detect(src: []const u8) bool {
