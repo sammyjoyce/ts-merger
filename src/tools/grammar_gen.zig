@@ -92,7 +92,7 @@ pub fn generateGrammarBindings(allocator: Allocator, node_types_path: []const u8
             try w.print("    {s},\n", .{clean_name});
         }
     }
-
+    try w.writeAll("    _,\n");  // Handle unknown types
     try w.writeAll("};");
 
     try w.writeAll("\n\npub const Grammar = struct {\n");
