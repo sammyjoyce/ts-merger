@@ -221,6 +221,12 @@ pub fn build(b: *std.Build) !void {
     const ts_lib_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_path, "lib", "src", "lib.c" });
     defer b.allocator.free(ts_lib_c);
 
+    const ts_parser_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "parser.c" });
+    defer b.allocator.free(ts_parser_c);
+
+    const ts_scanner_c = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "scanner.c" });
+    defer b.allocator.free(ts_scanner_c);
+
     tree_sitter.addCSourceFiles(.{
         .files = &.{ts_lib_c},
         .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
