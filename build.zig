@@ -262,7 +262,7 @@ pub fn build(b: *std.Build) !void {
     const ts_node_types = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "node-types.json" });
     const tsx_node_types = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx", "src", "node-types.json" });
 
-    const grammar_defs = .{
+    comptime const grammar_defs = .{
         .{
             .name = "typescript",
             .node_types_path = ts_node_types,
@@ -278,7 +278,7 @@ pub fn build(b: *std.Build) !void {
     // Add generation step with proper dependencies
     const gen_step = b.step("generate", "Generate parser bindings");
 
-    for (grammar_defs) |def| {
+    inline for (grammar_defs) |def| {
         const gen_cmd = b.addRunArtifact(gen);
         gen_cmd.step.dependOn(&mkdir.step);
         gen_cmd.addArgs(&.{
