@@ -33,6 +33,11 @@ pub const NodeTypeInfo = struct {
     variable_decl: []const u8,
     import_decl: []const u8,
     export_decl: []const u8,
+    jsx_element: ?[]const u8 = null,
+    jsx_opening_element: ?[]const u8 = null,
+    jsx_closing_element: ?[]const u8 = null,
+    jsx_self_closing_element: ?[]const u8 = null,
+    jsx_attribute: ?[]const u8 = null,
 };
 
 pub const LanguageRegistry = struct {
