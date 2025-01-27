@@ -193,13 +193,12 @@ test "watcher - event handling - modify" {
 
     try w.watch(path);
 
-    var done = std.atomic.Atomic(bool).init(false);
-    defer done.deinit();
+    var done = false;
 
     w.setCallback(struct {
         fn cb(event: WatchEvent) void {
             TestContext.onEvent(event);
-            done.store(true, .SeqCst);
+            done = true;
         }
     }.cb);
 

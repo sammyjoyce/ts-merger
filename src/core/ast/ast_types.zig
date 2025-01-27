@@ -148,7 +148,7 @@ pub const Node = struct {
 // Add test cases
 test "node initialization" {
     const allocator = std.testing.allocator;
-    var node = try Node.init(allocator, "TestNode", .{ .kind = .class_declaration });
+    var node = try Node.init(allocator, "TestNode", .{ .base = .class_declaration, .custom_kind = null, .source = null });
     defer node.deinit();
     defer allocator.destroy(node);
 
@@ -159,11 +159,11 @@ test "node initialization" {
 
 test "node dependencies" {
     const allocator = std.testing.allocator;
-    var node1 = try Node.init(allocator, "Node1", .{ .kind = .class_declaration });
+    var node1 = try Node.init(allocator, "Node1", .{ .base = .class_declaration, .custom_kind = null, .source = null });
     defer node1.deinit();
     defer allocator.destroy(node1);
 
-    var node2 = try Node.init(allocator, "Node2", .{ .kind = .class_declaration });
+    var node2 = try Node.init(allocator, "Node2", .{ .base = .class_declaration, .custom_kind = null, .source = null });
     defer node2.deinit();
     defer allocator.destroy(node2);
 
@@ -176,11 +176,11 @@ test "node dependencies" {
 
 test "node children" {
     const allocator = std.testing.allocator;
-    var node1 = try Node.init(allocator, "Node1", .{ .kind = .class_declaration });
+    var node1 = try Node.init(allocator, "Node1", .{ .base = .class_declaration, .custom_kind = null, .source = null });
     defer node1.deinit();
     defer allocator.destroy(node1);
 
-    const child = try Node.init(allocator, "Child", .{ .kind = .method_definition });
+    const child = try Node.init(allocator, "Child", .{ .base = .method_definition, .custom_kind = null, .source = null });
     try node1.children.append(child);
 
     try std.testing.expect(node1.children.items.len == 1);
@@ -270,11 +270,11 @@ const testing = std.testing;
 test "create and manipulate CodeFlowNode" {
     const allocator = testing.allocator;
 
-    var node = try CodeFlowNode.init(allocator, "TestNode", .{ .kind = .class });
+    var node = try CodeFlowNode.init(allocator, "TestNode", .{ .base = .class, .custom_kind = null, .source = null });
     defer node.deinit(allocator);
 
     try testing.expectEqualStrings("TestNode", node.name);
-    try testing.expectEqual(NodeKind.Kind.class, node.kind.kind);
+    try testing.expectEqual(NodeKind.BaseKind.class, node.kind.base);
     try testing.expectEqual(@as(usize, 0), node.dependencies.items.len);
     try testing.expectEqual(@as(usize, 0), node.references.items.len);
 }
@@ -282,10 +282,10 @@ test "create and manipulate CodeFlowNode" {
 test "add dependencies to CodeFlowNode" {
     const allocator = testing.allocator;
 
-    var node1 = try CodeFlowNode.init(allocator, "Node1", .{ .kind = .class });
+    var node1 = try CodeFlowNode.init(allocator, "Node1", .{ .base = .class, .custom_kind = null, .source = null });
     defer node1.deinit(allocator);
 
-    var node2 = try CodeFlowNode.init(allocator, "Node2", .{ .kind = .interface });
+    var node2 = try CodeFlowNode.init(allocator, "Node2", .{ .base = .interface, .custom_kind = null, .source = null });
     defer node2.deinit(allocator);
 
     try node1.dependencies.append(node2);
@@ -296,10 +296,10 @@ test "add dependencies to CodeFlowNode" {
 test "add references to CodeFlowNode" {
     const allocator = testing.allocator;
 
-    var node1 = try CodeFlowNode.init(allocator, "Node1", .{ .kind = .class });
+    var node1 = try CodeFlowNode.init(allocator, "Node1", .{ .base = .class, .custom_kind = null, .source = null });
     defer node1.deinit(allocator);
 
-    var node2 = try CodeFlowNode.init(allocator, "Node2", .{ .kind = .interface });
+    var node2 = try CodeFlowNode.init(allocator, "Node2", .{ .base = .interface, .custom_kind = null, .source = null });
     defer node2.deinit(allocator);
 
     try node1.references.append(node2);

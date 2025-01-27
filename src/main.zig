@@ -85,7 +85,7 @@ fn mergeCommand(allocator: std.mem.Allocator, config: @import("commands/cli.zig"
         .parser_create = &bindings.tree_sitter_tsx.TSXParser.init,
         .node_types = .{
             .program = "program",
-            .interface_decl = "interface_declaration", 
+            .interface_decl = "interface_declaration",
             .class_decl = "class_declaration",
             .function_decl = "function_declaration",
             .variable_decl = "variable_declaration",

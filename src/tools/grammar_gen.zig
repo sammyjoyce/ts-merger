@@ -30,8 +30,8 @@ pub fn main() !void {
     }
 
     if (!@hasDecl(@This(), "language") or
-        !@hasDecl(@This(), "output_path") or 
-        !@hasDecl(@This(), "node_types_path")) 
+        !@hasDecl(@This(), "output_path") or
+        !@hasDecl(@This(), "node_types_path"))
     {
         std.debug.print("Usage: grammar_gen --language <lang> --output <path> --node-types <node-types.json>\n", .{});
         return error.MissingArguments;
@@ -92,7 +92,7 @@ pub fn generateGrammarBindings(allocator: Allocator, node_types_path: []const u8
             try w.print("    {s},\n", .{clean_name});
         }
     }
-    try w.writeAll("    _,\n");  // Handle unknown types
+    try w.writeAll("    _,\n"); // Handle unknown types
     try w.writeAll("};");
 
     try w.writeAll("\n\npub const Grammar = struct {\n");

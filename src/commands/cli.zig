@@ -147,7 +147,7 @@ pub fn printError(err: anyerror, writer: anytype) !void {
 test "parse help command" {
     const allocator = std.testing.allocator;
     const args = [_][]const u8{ "ts-merger", "--help" };
-    var config = try parseArgs(allocator, &args);
+    const config = try parseArgs(allocator, &args);
     defer if (config) |cfg| cfg.deinit(allocator);
     try testing.expect(config.show_help);
 }

@@ -47,7 +47,7 @@ pub fn analyze(allocator: std.mem.Allocator, input: []const u8) !void {
         }
 
         // Check if this dependency creates a cycle
-        var visited = std.AutoHashMap(*ast_types.Node, void).init(self.allocator);
+        var visited = std.AutoHashMap(*ast_types.Node, void).init(allocator);
         defer visited.deinit();
 
         if (try self.hasCycle(dep, node, &visited)) {
@@ -218,7 +218,7 @@ fn detectCycleDfs(allocator: std.mem.Allocator, start: *ast_types.Node) ![]const
 }
 
 const testing = std.testing;
-const tree_sitter_ts = @import("../bindings/tree_sitter_typescript.zig");
+const tree_sitter_ts = @import("tree_sitter_typescript");
 const parser_mod = @import("../parser/mod.zig");
 const Logger = @import("../utils/log.zig").Logger;
 
