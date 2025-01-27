@@ -76,6 +76,12 @@ fn addTests(
             .needs_cpp = false,
         },
         .{
+            .name = "watcher",
+            .path = "src/watcher/mod.zig",
+            .modules = &.{.{ .name = "libxev", .module = b.dependency("libxev", .{}).module("libxev") }},
+            .needs_cpp = false,
+        },
+        .{
             .name = "parser",
             .path = "src/parser/mod.zig",
             .modules = &.{
@@ -128,6 +134,17 @@ fn addTests(
             test_exe.linkLibrary(options.tree_sitter_typescript_lib);
         }
         test_exe.linkLibC();
+        test_exe.linkLibCpp();
+
+        // Add include paths for tree-sitter
+        test_exe.addIncludePath(.{ .cwd_relative = "pkg/tree-sitter/lib/include" });
+        test_exe.addIncludePath(.{ .cwd_relative = "pkg/tree-sitter-typescript/typescript/src" });
+        test_exe.addIncludePath(.{ .cwd_relative = "pkg/tree-sitter-typescript/tsx/src" });
+
+        // Add object files
+        test_exe.addObjectFile(.{ .cwd_relative = "pkg/tree-sitter/lib/src/lib.c" });
+        test_exe.addObjectFile(.{ .cwd_relative = "pkg/tree-sitter-typescript/typescript/src/parser.c" });
+        test_exe.addObjectFile(.{ .cwd_relative = "pkg/tree-sitter-typescript/typescript/src/scanner.c" });
 
         test_step.dependOn(&b.addRunArtifact(test_exe).step);
     }
