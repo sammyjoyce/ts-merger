@@ -237,15 +237,41 @@ pub fn build(b: *std.Build) !void {
     gen.linkLibrary(tree_sitter_typescript);
     gen.linkLibC();
 
+    // Create generated directory
+    const mkdir = b.addSystemCommand(&.{ "mkdir", "-p", "src/bindings/generated" });
+
+    const ts_node_types = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "node-types.json" });
+    const tsx_node_types = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx", "src", "node-types.json" });
+
     const gen_ts_cmd = b.addRunArtifact(gen);
-    gen_ts_cmd.addArg("--language=typescript");
-    gen_ts_cmd.addArg("--output=src/bindings/generated/typescript.zig");
-    gen_ts_cmd.addArg("--parser-output=src/bindings/generated/TypeScriptParser.zig");
+    gen_ts_cmd.step.dependOn(&mkdir.step);
+    gen_ts_cmd.addArg("--language");
+    gen_ts_cmd.addArg("typescript");
+    gen_ts_cmd.addArg("--output");
+    gen_ts_cmd.addArg("src/bindings/generated/typescript.zig");
+    gen_ts_cmd.addArg("--node-types");
+    gen_ts_cmd.addArg(ts_node_types);
 
     const gen_tsx_cmd = b.addRunArtifact(gen);
-    gen_tsx_cmd.addArg("--language=tsx");
-    gen_tsx_cmd.addArg("--output=src/bindings/generated/tsx.zig");
-    gen_tsx_cmd.addArg("--parser-output=src/bindings/generated/TSXParser.zig");
+    gen_tsx_cmd.step.dependOn(&mkdir.step);
+    gen_tsx_cmd.addArg("--language");
+    gen_tsx_cmd.addArg("tsx");
+    gen_tsx_cmd.addArg("--output");
+    gen_tsx_cmd.addArg("src/bindings/generated/tsx.zig");
+    gen_tsx_cmd.addArg("--node-types");
+    gen_tsx_cmd.addArg(tsx_node_types);
+
+    // Add generation step
+    const gen_step = b.step("generate", "Generate parser bindings");
+    gen_step.dependOn(&gen_ts_cmd.step);
+    gen_step.dependOn(&gen_tsx_cmd.step);
+
+    // Add generation step dependencies
+    const gen_step = b.step("generate", "Generate parser bindings");
+    gen_step.dependOn(&gen_ts_cmd.step);
+    gen_step.dependOn(&gen_tsx_cmd.step);
+    exe.step.dependOn(gen_step);
+    test_step.dependOn(gen_step);
 
     // Create modules for the final executable
     const tree_sitter_module = b.createModule(.{

@@ -5,6 +5,33 @@ const json = std.json;
 const mem = std.mem;
 const Allocator = mem.Allocator;
 
+pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    var args = try std.process.argsWithAllocator(allocator);
+    defer args.deinit();
+
+    _ = args.next(); // Skip executable name
+    
+    var language: []const u8 = undefined;
+    var output_path: []const u8 = undefined;
+    var node_types_path: []const u8 = undefined;
+
+    while (args.next()) |arg| {
+        if (std.mem.eql(u8, arg, "--language")) {
+            language = args.next() orelse return error.MissingLanguageArg;
+        } else if (std.mem.eql(u8, arg, "--output")) {
+            output_path = args.next() orelse return error.MissingOutputArg;
+        } else if (std.mem.eql(u8, arg, "--node-types")) {
+            node_types_path = args.next() orelse return error.MissingNodeTypesArg;
+        }
+    }
+
+    try generateGrammarBindings(allocator, node_types_path, output_path);
+}
+
 pub const GrammarError = error{
     InvalidNodeType,
     MissingRequiredField,
