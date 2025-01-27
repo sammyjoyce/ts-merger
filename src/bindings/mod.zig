@@ -5,13 +5,6 @@ pub const tree_sitter_typescript = @import("tree_sitter_typescript.zig");
 pub const tree_sitter_tsx = @import("tree_sitter_tsx.zig");
 pub const tsx = @import("tree_sitter_tsx.zig");
 
-pub const tree_sitter_tsx = struct {
-    pub const language = @import("language.zig");
-    pub const NodeType = NodeType(.TSX);
-    pub const NodeTypes = @import("generated/tsx.zig").NodeTypes;
-    pub const Grammar = @import("generated/tsx.zig").Grammar;
-};
-
 pub const Language = language.Language;
 pub const LanguageParser = language.LanguageParser;
 pub const LanguageError = language.LanguageError;

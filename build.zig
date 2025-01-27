@@ -254,6 +254,7 @@ pub fn build(b: *std.Build) !void {
     gen.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
     gen.linkLibrary(tree_sitter);
     gen.linkLibrary(tree_sitter_typescript);
+    gen.linkLibrary(tree_sitter_tsx);
     gen.linkLibC();
 
     // Create generated directory
@@ -312,6 +313,19 @@ pub fn build(b: *std.Build) !void {
     exe.addObjectFile(.{ .cwd_relative = ts_parser_c });
     exe.addObjectFile(.{ .cwd_relative = ts_scanner_c });
     // exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+
+    // Add tests from our integrated function
+    const test_step = try addTests(
+        b,
+        target,
+        mode,
+        .{
+            .tree_sitter = tree_sitter_module,
+            .tree_sitter_typescript = tree_sitter_typescript_module,
+            .tree_sitter_lib = tree_sitter,
+            .tree_sitter_typescript_lib = tree_sitter_typescript,
+        },
+    );
 
     // Ensure main executable and tests depend on generation
     exe.step.dependOn(gen_step);

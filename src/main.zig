@@ -82,7 +82,7 @@ fn mergeCommand(allocator: std.mem.Allocator, config: @import("commands/cli.zig"
     try lang_registry.register(.{
         .name = "tsx",
         .extensions = &[_][]const u8{"tsx"},
-        .parser_create = &bindings.tree_sitter_tsx.TSXParser.init,
+        .parser_create = &bindings.language.LanguageParser.init,
         .node_types = .{
             .program = "program",
             .interface_decl = "interface_declaration",
