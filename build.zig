@@ -313,13 +313,13 @@ pub fn build(b: *std.Build) !void {
 
     // Add generation step with proper dependencies
     const gen_step = b.step("generate", "Generate parser bindings");
-    
+
     for (grammar_defs) |def| {
         const gen_cmd = b.addRunArtifact(gen);
         gen_cmd.step.dependOn(&mkdir.step);
         gen_cmd.addArgs(&.{
-            "--language", def.name,
-            "--output", def.output_path,
+            "--language",   def.name,
+            "--output",     def.output_path,
             "--node-types", def.node_types_path,
         });
         gen_step.dependOn(&gen_cmd.step);

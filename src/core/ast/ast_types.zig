@@ -285,7 +285,7 @@ test "add dependencies to CodeFlowNode" {
     var node1 = try CodeFlowNode.init(allocator, "Node1", .{ .base = .class, .custom_kind = null, .source = null });
     defer node1.deinit(allocator);
 
-    var node2 = try CodeFlowNode.init(allocator, "Node2", .{ .base = .interface, .custom_kind = null, .source = null });
+    var node2 = try CodeFlowNode.init(allocator, "Node2", .{ .base = .Interface, .custom_kind = null, .source = null });
     defer node2.deinit(allocator);
 
     try node1.dependencies.append(node2);
@@ -299,7 +299,7 @@ test "add references to CodeFlowNode" {
     var node1 = try CodeFlowNode.init(allocator, "Node1", .{ .base = .class, .custom_kind = null, .source = null });
     defer node1.deinit(allocator);
 
-    var node2 = try CodeFlowNode.init(allocator, "Node2", .{ .base = .interface, .custom_kind = null, .source = null });
+    var node2 = try CodeFlowNode.init(allocator, "Node2", .{ .base = .Interface, .custom_kind = null, .source = null });
     defer node2.deinit(allocator);
 
     try node1.references.append(node2);
