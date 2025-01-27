@@ -20,9 +20,15 @@ pub const Language = enum {
 pub const LanguageMetadata = struct {
     name: []const u8,
     extensions: []const []const u8,
-    parser_create: *const fn (std.mem.Allocator) anyerror!*tree_sitter.Parser,
-    node_types: NodeTypeInfo,
+    ts_language_fn: *const fn () callconv(.C) *const tree_sitter.TSLanguage,
     detect_content: *const fn ([]const u8) bool,
+    node_types: NodeTypeInfo,
+
+    pub fn createParser(self: *const @This(), allocator: std.mem.Allocator) !LanguageParser {
+        var parser = try tree_sitter.Parser.init(allocator);
+        try parser.setLanguage(self.ts_language_fn());
+        return parser;
+    }
 };
 
 pub const NodeTypeInfo = struct {
@@ -38,6 +44,53 @@ pub const NodeTypeInfo = struct {
     jsx_closing_element: ?[]const u8 = null,
     jsx_self_closing_element: ?[]const u8 = null,
     jsx_attribute: ?[]const u8 = null,
+};
+
+pub const BuiltinLanguages = &.{
+    .{
+        .name = "typescript",
+        .extensions = &.{"ts"},
+        .ts_language_fn = tree_sitter_typescript,
+        .detect_content = struct {
+            fn detect(src: []const u8) bool {
+                return std.mem.indexOf(u8, src, "interface ") != null or
+                    std.mem.indexOf(u8, src, "class ") != null;
+            }
+        }.detect,
+        .node_types = .{
+            .program = "program",
+            .interface_decl = "interface_declaration",
+            .class_decl = "class_declaration",
+            .function_decl = "function_declaration",
+            .variable_decl = "variable_declaration",
+            .import_decl = "import_statement",
+            .export_decl = "export_statement",
+        },
+    },
+    .{
+        .name = "tsx",
+        .extensions = &.{"tsx"},
+        .ts_language_fn = tree_sitter_tsx,
+        .detect_content = struct {
+            fn detect(src: []const u8) bool {
+                return std.mem.indexOf(u8, src, "</") != null;
+            }
+        }.detect,
+        .node_types = .{
+            .program = "program",
+            .interface_decl = "interface_declaration",
+            .class_decl = "class_declaration",
+            .function_decl = "function_declaration",
+            .variable_decl = "variable_declaration",
+            .import_decl = "import_statement",
+            .export_decl = "export_statement",
+            .jsx_element = "jsx_element",
+            .jsx_opening_element = "jsx_opening_element",
+            .jsx_closing_element = "jsx_closing_element",
+            .jsx_self_closing_element = "jsx_self_closing_element",
+            .jsx_attribute = "jsx_attribute",
+        },
+    },
 };
 
 pub const LanguageRegistry = struct {
@@ -57,6 +110,12 @@ pub const LanguageRegistry = struct {
 
     pub fn register(self: *LanguageRegistry, meta: LanguageMetadata) !void {
         try self.languages.append(meta);
+    }
+
+    pub fn registerFromBuiltin(self: *LanguageRegistry) !void {
+        for (BuiltinLanguages) |lang| {
+            try self.register(lang);
+        }
     }
 
     pub fn detect(self: *const LanguageRegistry, filename: ?[]const u8, source: []const u8) LanguageError!*const LanguageMetadata {

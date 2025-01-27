@@ -153,6 +153,41 @@ fn addTests(
 }
 
 /// Main build function (Zig 0.14.0 style)
+fn addTreeSitterGrammar(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    mode: std.builtin.OptimizeMode,
+    base_path: []const u8,
+    language_name: []const u8,
+) !*std.Build.Step.Compile {
+    const lib = b.addStaticLibrary(.{
+        .name = b.fmt("tree-sitter-{s}", .{language_name}),
+        .target = target,
+        .optimize = mode,
+    });
+
+    const src_dir = try std.fs.path.join(b.allocator, &.{ base_path, "src" });
+    defer b.allocator.free(src_dir);
+
+    const parser_c = try std.fs.path.join(b.allocator, &.{ src_dir, "parser.c" });
+    defer b.allocator.free(parser_c);
+
+    const scanner_c = try std.fs.path.join(b.allocator, &.{ src_dir, "scanner.c" });
+    defer b.allocator.free(scanner_c);
+
+    lib.addCSourceFiles(.{
+        .files = &.{ parser_c, scanner_c },
+        .flags = &.{ "-std=c99", "-fPIC", "-D_GNU_SOURCE" },
+    });
+
+    lib.linkLibC();
+    lib.addIncludePath(.{ .cwd_relative = "pkg/tree-sitter/lib/include" });
+    lib.linkLibrary(b.dependency("tree-sitter", .{}).artifact("tree-sitter"));
+    lib.installHeadersDirectory(.{ .cwd_relative = src_dir }, "include", .{});
+
+    return lib;
+}
+
 pub fn build(b: *std.Build) !void {
     // Validate path components at compile-time
     comptime {
@@ -263,28 +298,32 @@ pub fn build(b: *std.Build) !void {
     const ts_node_types = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "node-types.json" });
     const tsx_node_types = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx", "src", "node-types.json" });
 
-    const gen_ts_cmd = b.addRunArtifact(gen);
-    gen_ts_cmd.step.dependOn(&mkdir.step);
-    gen_ts_cmd.addArg("--language");
-    gen_ts_cmd.addArg("typescript");
-    gen_ts_cmd.addArg("--output");
-    gen_ts_cmd.addArg("src/bindings/generated/typescript.zig");
-    gen_ts_cmd.addArg("--node-types");
-    gen_ts_cmd.addArg(ts_node_types);
-
-    const gen_tsx_cmd = b.addRunArtifact(gen);
-    gen_tsx_cmd.step.dependOn(&mkdir.step);
-    gen_tsx_cmd.addArg("--language");
-    gen_tsx_cmd.addArg("tsx");
-    gen_tsx_cmd.addArg("--output");
-    gen_tsx_cmd.addArg("src/bindings/generated/tsx.zig");
-    gen_tsx_cmd.addArg("--node-types");
-    gen_tsx_cmd.addArg(tsx_node_types);
+    const grammar_defs = .{
+        .{
+            .name = "typescript",
+            .node_types_path = ts_node_types,
+            .output_path = "src/bindings/generated/typescript.zig",
+        },
+        .{
+            .name = "tsx",
+            .node_types_path = tsx_node_types,
+            .output_path = "src/bindings/generated/tsx.zig",
+        },
+    };
 
     // Add generation step with proper dependencies
     const gen_step = b.step("generate", "Generate parser bindings");
-    gen_step.dependOn(&gen_ts_cmd.step);
-    gen_step.dependOn(&gen_tsx_cmd.step);
+    
+    for (grammar_defs) |def| {
+        const gen_cmd = b.addRunArtifact(gen);
+        gen_cmd.step.dependOn(&mkdir.step);
+        gen_cmd.addArgs(&.{
+            "--language", def.name,
+            "--output", def.output_path,
+            "--node-types", def.node_types_path,
+        });
+        gen_step.dependOn(&gen_cmd.step);
+    }
 
     // Create modules for the final executable
     const tree_sitter_module = b.createModule(.{
