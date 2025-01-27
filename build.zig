@@ -285,10 +285,6 @@ pub fn build(b: *std.Build) !void {
     gen_step.dependOn(&gen_ts_cmd.step);
     gen_step.dependOn(&gen_tsx_cmd.step);
 
-    // Ensure main executable and tests depend on generation
-    exe.step.dependOn(gen_step);
-    test_step.dependOn(gen_step);
-
     // Create modules for the final executable
     const tree_sitter_module = b.createModule(.{
         .root_source_file = .{ .cwd_relative = "src/bindings/tree_sitter.zig" },
@@ -316,6 +312,10 @@ pub fn build(b: *std.Build) !void {
     exe.addObjectFile(.{ .cwd_relative = ts_parser_c });
     exe.addObjectFile(.{ .cwd_relative = ts_scanner_c });
     // exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+
+    // Ensure main executable and tests depend on generation
+    exe.step.dependOn(gen_step);
+    test_step.dependOn(gen_step);
 
     const run_cmd = b.addRunArtifact(exe);
     if (b.args) |args| {
