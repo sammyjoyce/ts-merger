@@ -1,11 +1,13 @@
 const std = @import("std");
 const cli = @import("../cli.zig");
-const ast_types = @import("../ast/ast_types.zig");
+
 const parser_mod = @import("../parser/mod.zig");
 const typescript = @import("../parser/typescript.zig");
-const flow = @import("../flow.zig");
+
 const Project = @import("../project.zig").Project;
 const Logger = @import("../utils/log.zig").Logger;
+const ProgressReporter = @import("../utils/progress.zig").ProgressReporter;
+const MergeRules = @import("../core/merge/rules.zig").MergeRules;
 
 const MergeError = error{
     NoSourceFiles,
@@ -68,20 +70,55 @@ pub fn execute(allocator: std.mem.Allocator, config: *const cli.Config) MergeErr
         logger.info("  - {s}", .{file});
     }
 
-    // Initialize parser and flow
+    // Calculate total steps for progress reporting
+    // 1 step for initialization, 1 step per source file, 1 step for writing to target file
+    const total_steps = 2 + source_files.len;
+    var progress = try ProgressReporter.init(allocator, total_steps, "Merge", .Info, true);
+    defer progress.deinit();
+
+    // Step 1: Initialize parser and flow
+    progress.update(1, "Initializing parser and project");
     var ts_parser = try typescript.TypeScriptParser.init(allocator);
     defer ts_parser.deinit();
 
-    var project = try Project.init(allocator, &parser_mod.Parser.init(allocator, ts_parser)); // Use generic parser with TypeScript implementation
+    // Use generic parser with TypeScript implementation
+    var parser = parser_mod.Parser.init(allocator, ts_parser);
+
+    // Create merge rules with remove_redundancies and eliminate_dead_code flags from config
+    const merge_rules = MergeRules{
+        .preserve_comments = true,
+        .sort_imports = true,
+        .remove_redundancies = config.remove_redundancies,
+        .eliminate_dead_code = config.eliminate_dead_code,
+    };
+
+    // Log if remove_redundancies is enabled
+    if (config.remove_redundancies) {
+        logger.info("Remove redundant imports: enabled", .{});
+    }
+
+    // Log if eliminate_dead_code is enabled
+    if (config.eliminate_dead_code) {
+        logger.info("Eliminate dead code: enabled", .{});
+    }
+
+    // Initialize project with merge rules
+    var project = try Project.initWithRules(allocator, &parser, merge_rules);
     defer project.deinit();
 
     // Process source files
-    for (source_files) |file| {
-        Logger.scoped(.Info, "merge").info("Processing file: {s}", .{file});
+    for (0..source_files.len) |i| {
+        const file = source_files[i];
+        const step = 2 + i; // Step 2 is the first file
+        const message = std.fmt.allocPrint(allocator, "Processing file: {s}", .{file}) catch "Processing file";
+        defer if (std.mem.indexOf(u8, message, "Processing file:") != null) allocator.free(message);
+
+        progress.update(step, message);
         try project.parseFile(file);
     }
 
     // Create target file
+    progress.update(total_steps - 1, "Writing merged content to target file");
     const target = std.fs.cwd().createFile(target_file, .{}) catch |err| {
         Logger.scoped(.Error, "merge").err("Failed to create target file '{s}': {s}", .{ target_file, @errorName(err) });
         return err; // Proper error propagation
@@ -89,7 +126,9 @@ pub fn execute(allocator: std.mem.Allocator, config: *const cli.Config) MergeErr
     defer target.close();
 
     // Write merged content using project API
-    try project.writeToFile(target_file);
+    try project.writeToFile(target_file, &progress);
 
+    // Mark progress as complete
+    progress.complete("Merge completed successfully!");
     Logger.scoped(.Info, "merge").info("Merge completed successfully!", .{});
 }

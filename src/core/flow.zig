@@ -2,16 +2,35 @@ const std = @import("std");
 const Parser = @import("../parser/mod.zig").Parser;
 const ast_types = @import("ast_types");
 const typescript = @import("../bindings/tree_sitter_typescript.zig");
+const ProgressReporter = @import("../utils/progress.zig").ProgressReporter;
+
+const MergeRules = @import("merge/rules.zig").MergeRules;
 
 pub const Flow = struct {
     allocator: std.mem.Allocator,
     nodes: std.ArrayList(*ast_types.Node),
+    merge_rules: MergeRules,
 
     pub fn init(allocator: std.mem.Allocator) !*Flow {
         const self = try allocator.create(Flow);
         self.* = .{
             .allocator = allocator,
             .nodes = std.ArrayList(*ast_types.Node).init(allocator),
+            .merge_rules = .{
+                .preserve_comments = true,
+                .sort_imports = true,
+                .remove_redundancies = true,
+            },
+        };
+        return self;
+    }
+
+    pub fn initWithRules(allocator: std.mem.Allocator, merge_rules: MergeRules) !*Flow {
+        const self = try allocator.create(Flow);
+        self.* = .{
+            .allocator = allocator,
+            .nodes = std.ArrayList(*ast_types.Node).init(allocator),
+            .merge_rules = merge_rules,
         };
         return self;
     }
@@ -137,9 +156,18 @@ pub fn getTopologicalOrder(self: *Flow) !std.ArrayList(*ast_types.Node) {
     return sorted;
 }
 
-pub fn writeToFile(self: *Flow, file_path: []const u8) !void {
+pub fn writeToFile(self: *Flow, file_path: []const u8, progress_reporter: ?*ProgressReporter) !void {
+    // Report progress if a progress reporter is provided
+    if (progress_reporter) |reporter| {
+        reporter.update(reporter.current_step, "Calculating topological order of nodes");
+    }
+
     const ordered = try self.getTopologicalOrder();
     std.debug.print("Starting writeToFile\n", .{});
+
+    if (progress_reporter) |reporter| {
+        reporter.update(reporter.current_step, "Creating output file");
+    }
 
     const file = try std.fs.cwd().createFile(file_path, .{
         .truncate = true,
@@ -151,10 +179,25 @@ pub fn writeToFile(self: *Flow, file_path: []const u8) !void {
     var writer = buffered_writer.writer();
 
     // Single pass through topological order
-    for (ordered.items) |node| {
-        std.debug.print("Writing node: {s}\n", .{@tagName(node.kind.kind)});
+    const total_nodes = ordered.items.len;
+    for (ordered.items, 0..) |node, i| {
+        // Report progress for node writing if a progress reporter is provided
+        if (progress_reporter) |reporter| {
+            const percent = @as(f64, @floatFromInt(i)) / @as(f64, @floatFromInt(total_nodes)) * 100.0;
+            const message = std.fmt.allocPrint(self.allocator, "Writing nodes ({d}/{d}, {d:.1}%): {s}", .{ i + 1, total_nodes, percent, @tagName(node.kind.kind) }) catch "Writing nodes";
+            defer if (std.mem.indexOf(u8, message, "Writing nodes (") != null) self.allocator.free(message);
+
+            reporter.update(reporter.current_step, message);
+        } else {
+            std.debug.print("Writing node: {s}\n", .{@tagName(node.kind.kind)});
+        }
+
         try self.writeNode(writer, node);
         try writer.writeAll("\n");
+    }
+
+    if (progress_reporter) |reporter| {
+        reporter.update(reporter.current_step, "Flushing output to disk");
     }
 
     try buffered_writer.flush();
@@ -164,6 +207,10 @@ pub fn writeToFile(self: *Flow, file_path: []const u8) !void {
     const file_size = try file.getEndPos();
     if (file_size == 0) {
         std.debug.print("Warning: Output file is empty\n", .{});
+    }
+
+    if (progress_reporter) |reporter| {
+        reporter.update(reporter.current_step, "File writing complete");
     }
 }
 
@@ -177,9 +224,30 @@ fn writeNode(self: *Flow, writer: anytype, node: *ast_types.Node) !void {
         try writer.writeAll(value);
     }
 
-    for (node.children.items) |child| {
-        if (child.kind.kind != .unknown) {
-            try self.writeNode(writer, child);
+    // If this is a program node and we have sort_imports or remove_redundancies enabled,
+    // apply the MergeRules to sort imports and remove redundancies
+    if (node.kind.kind == .program and (self.merge_rules.sort_imports or self.merge_rules.remove_redundancies)) {
+        // Create a copy of the node's children to avoid modifying the original
+        var children_copy = std.ArrayList(*ast_types.Node).init(self.allocator);
+        defer children_copy.deinit();
+
+        try children_copy.appendSlice(node.children.items);
+
+        // Sort imports and remove redundancies
+        try self.merge_rules.sortProgramImports(node);
+
+        // Write the sorted children
+        for (node.children.items) |child| {
+            if (child.kind.kind != .unknown) {
+                try self.writeNode(writer, child);
+            }
+        }
+    } else {
+        // Write children as usual
+        for (node.children.items) |child| {
+            if (child.kind.kind != .unknown) {
+                try self.writeNode(writer, child);
+            }
         }
     }
 

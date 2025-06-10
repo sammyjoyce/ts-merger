@@ -1,0 +1,9 @@
+[2025-03-18T10:58:43.634Z] [INFO] Logger initialized for session 1742295523634-ujvgig5
+[2025-03-18T10:58:43.642Z] [DEBUG] stdin.isTTY: true
+TTY
+[2025-03-18T10:58:43.643Z] [DEBUG] stdout.isTTY: true
+TTY
+[2025-03-18T10:58:43.643Z] [DEBUG] stderr.isTTY: true
+TTY
+[2025-03-18T10:58:43.643Z] [ERROR] [StartupError] Failed to start Verticode CLI
+[2025-03-18T10:58:43.643Z] [ERROR] [StartupError] Can't find variable: initializeMemory

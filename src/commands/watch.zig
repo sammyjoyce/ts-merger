@@ -4,7 +4,6 @@ const watcher = @import("watcher");
 const parser_mod = @import("../parser/mod.zig");
 const typescript = @import("../parser/typescript.zig");
 const flow = @import("core/flow");
-const Logger = @import("../utils/log.zig").Logger;
 
 const WatchContext = struct {
     parser: *parser_mod.Parser, // Use generic parser interface
@@ -20,7 +19,8 @@ const WatchContext = struct {
 
         const ts_parser_impl = try typescript.TypeScriptParser.init(allocator);
         errdefer ts_parser_impl.deinit();
-        ctx.parser = parser_mod.Parser.init(allocator, ts_parser_impl); // Initialize generic parser with TypeScript implementation
+        // Initialize generic parser with TypeScript implementation
+        ctx.parser = parser_mod.Parser.init(allocator, ts_parser_impl);
         errdefer ctx.parser.deinit();
 
         ctx.flow_graph = try flow.FlowGraph.init(allocator);
@@ -88,7 +88,9 @@ const WatchContext = struct {
         };
         defer ts_parser_impl.deinit();
         self.parser.deinit(); // Deinit old parser
-        self.parser = parser_mod.Parser.init(self.allocator, ts_parser_impl); // Initialize generic parser with new TypeScript implementation
+
+        // Initialize generic parser with new TypeScript implementation
+        self.parser = parser_mod.Parser.init(self.allocator, ts_parser_impl);
 
         // Clear and rebuild flow graph
         self.flow_graph.clear();

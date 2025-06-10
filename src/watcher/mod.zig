@@ -1,5 +1,12 @@
 const std = @import("std");
-const libxev = @import("libxev");
+
+const build_options = @import("build_options");
+
+// Only import libxev when building with watcher support
+const libxev = if (build_options.enable_watcher)
+    @import("libxev")
+else
+    @compileError("Watcher module requires libxev, but watcher support is disabled");
 
 /// Represents a file system event
 pub const WatchEvent = struct {
@@ -26,6 +33,9 @@ pub const Watcher = struct {
     watched: std.StringHashMap(*libxev.FileEvent),
 
     pub fn init(allocator: std.mem.Allocator) !Watcher {
+        // SAFETY: The comp field is initialized as undefined but is only used as a reference
+        // in the watch method where it's passed to libxev.FileEvent.add. The Completion struct
+        // is properly initialized by libxev when it's first used in an operation.
         return Watcher{
             .allocator = allocator,
             .loop = try libxev.Loop.init(.{}),
@@ -105,7 +115,7 @@ pub const Watcher = struct {
     ) libxev.CallbackAction {
         _ = loop;
         _ = comp;
-        const self = @as(*Watcher, @ptrCast(@alignCast(userdata.?)));
+        const self: *Watcher = @ptrCast(@alignCast(userdata.?));
 
         const kind: WatchEvent.EventKind = if (res.err) |err| switch (err) {
             error.FileDeleted => .delete,
@@ -127,9 +137,6 @@ pub const Watcher = struct {
 };
 
 const testing = std.testing;
-
-const WATCHER_INIT_WAIT_MS = 100;
-const EVENT_WAIT_MS = 200;
 
 const TestContext = struct {
     var received_events = std.ArrayList(WatchEvent).init(testing.allocator);

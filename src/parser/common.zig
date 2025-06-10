@@ -2,7 +2,8 @@ const std = @import("std");
 const Node = @import("../ast/ast_types.zig").Node;
 const ParseError = @import("mod.zig").ParseError;
 
-pub const Error = ParseError || error{ EmptySource, InvalidNodeType, NoRootNode, SourceTooLarge, InvalidEncoding, OutOfMemory } || std.mem.Allocator.Error;
+pub const Error = ParseError ||
+    error{ EmptySource, InvalidNodeType, NoRootNode, SourceTooLarge, InvalidEncoding, OutOfMemory } || std.mem.Allocator.Error;
 
 pub const LanguageMetadata = struct {
     id: u16,

@@ -21,13 +21,11 @@ fn addTests(
         tree_sitter_typescript: *std.Build.Module,
         tree_sitter_lib: *std.Build.Step.Compile,
         tree_sitter_typescript_lib: *std.Build.Step.Compile,
+        enable_watcher: bool,
     },
 ) !*std.Build.Step {
     // This step is the global container for all tests.
     const test_step = b.step("test", "Run all tests");
-
-    // Watcher functionality is removed
-    const enable_watcher = false;
 
     // Create modules needed for tests
     const bindings_module = b.createModule(.{
@@ -67,18 +65,17 @@ fn addTests(
         needs_cpp: bool,
     };
 
+    // Create build options module for tests
+    const test_options = b.addOptions();
+    test_options.addOption(bool, "enable_watcher", options.enable_watcher);
+    const build_options_module = test_options.createModule();
+
     // Add tests from source files
     const source_tests = [_]TestConfig{
         .{
             .name = "tree_sitter",
             .path = "src/bindings/tree_sitter.zig",
             .modules = &.{.{ .name = "tree_sitter", .module = options.tree_sitter }},
-            .needs_cpp = false,
-        },
-        .{
-            .name = "watcher",
-            .path = "src/watcher/mod.zig",
-            .modules = &.{.{ .name = "libxev", .module = b.dependency("libxev", .{}).module("libxev") }},
             .needs_cpp = false,
         },
         .{
@@ -110,18 +107,25 @@ fn addTests(
             },
             .needs_cpp = false,
         },
-    } ++ if (enable_watcher) [_]TestConfig{
+    } ++ if (options.enable_watcher) [_]TestConfig{
         .{
             .name = "watcher",
             .path = "src/watcher/mod.zig",
-            .modules = &.{},
+            .modules = &.{
+                .{ .name = "build_options", .module = build_options_module },
+            },
             .needs_cpp = true,
         },
     } else [_]TestConfig{};
 
     // Configure and add each test
     for (source_tests) |test_info| {
-        const test_exe = b.addTest(.{ .name = b.fmt("{s}_test", .{test_info.name}), .root_source_file = .{ .cwd_relative = test_info.path }, .target = target, .optimize = optimize });
+        const test_exe = b.addTest(.{
+            .name = b.fmt("{s}_test", .{test_info.name}),
+            .root_source_file = .{ .cwd_relative = test_info.path },
+            .target = target,
+            .optimize = optimize,
+        });
 
         // Add module imports
         for (test_info.modules) |mod| {
@@ -135,6 +139,13 @@ fn addTests(
         }
         test_exe.linkLibC();
         test_exe.linkLibCpp();
+
+        // Conditionally link libxev for watcher tests
+        if (options.enable_watcher and std.mem.eql(u8, test_info.name, "watcher")) {
+            const libxev_dep = b.dependency("libxev", .{});
+            test_exe.linkLibrary(libxev_dep.artifact("xev"));
+            test_exe.root_module.addImport("libxev", libxev_dep.module("xev"));
+        }
 
         // Add include paths for tree-sitter
         test_exe.addIncludePath(.{ .cwd_relative = "pkg/tree-sitter/lib/include" });
@@ -201,6 +212,9 @@ pub fn build(b: *std.Build) !void {
     const mode = b.standardOptimizeOption(.{});
     const exe_name = b.option([]const u8, "name", "Name of the executable") orelse "fuze";
 
+    // Define enable_watcher as a build option with a default value of false
+    const enable_watcher = b.option(bool, "enable-watcher", "Enable file watcher functionality") orelse false;
+
     //
     // Set up tree-sitter library + tree-sitter-typescript
     //
@@ -235,11 +249,15 @@ pub fn build(b: *std.Build) !void {
     tree_sitter.addIncludePath(.{ .cwd_relative = tree_sitter_main_include });
 
     // Build the tree-sitter-typescript and tree-sitter-tsx libraries using the helper function
-    const tree_sitter_typescript = try addTreeSitterGrammar(b, target, mode, try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript" }), "typescript");
+    const ts_path = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript" });
+    defer b.allocator.free(ts_path);
+    const tree_sitter_typescript = try addTreeSitterGrammar(b, target, mode, ts_path, "typescript");
     tree_sitter_typescript.linkLibrary(tree_sitter);
     tree_sitter_typescript.linkLibCpp();
 
-    const tree_sitter_tsx = try addTreeSitterGrammar(b, target, mode, try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx" }), "tsx");
+    const tsx_path = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx" });
+    defer b.allocator.free(tsx_path);
+    const tree_sitter_tsx = try addTreeSitterGrammar(b, target, mode, tsx_path, "tsx");
     tree_sitter_tsx.linkLibrary(tree_sitter);
     tree_sitter_tsx.linkLibrary(tree_sitter_typescript);
 
@@ -259,8 +277,12 @@ pub fn build(b: *std.Build) !void {
     // Create generated directory
     const mkdir = b.addSystemCommand(&.{ "mkdir", "-p", "src/bindings/generated" });
 
-    const ts_node_types = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "typescript", "src", "node-types.json" });
-    const tsx_node_types = try std.fs.path.join(b.allocator, &.{ tree_sitter_ts_path, "tsx", "src", "node-types.json" });
+    // Path components for node types files
+    const ts_node_types_components = &.{ tree_sitter_ts_path, "typescript", "src", "node-types.json" };
+    const ts_node_types = try std.fs.path.join(b.allocator, ts_node_types_components);
+
+    const tsx_node_types_components = &.{ tree_sitter_ts_path, "tsx", "src", "node-types.json" };
+    const tsx_node_types = try std.fs.path.join(b.allocator, tsx_node_types_components);
 
     comptime const grammar_defs = .{
         .{
@@ -307,6 +329,12 @@ pub fn build(b: *std.Build) !void {
         .target = target,
         .optimize = mode,
     });
+
+    // Add build options
+    const exe_options = b.addOptions();
+    exe_options.addOption(bool, "enable_watcher", enable_watcher);
+    exe.root_module.addImport("build_options", exe_options.createModule());
+
     exe.root_module.addImport("clap", clap_dep.module("clap"));
     exe.addIncludePath(.{ .cwd_relative = "src" });
     exe.linkLibC();
@@ -315,6 +343,13 @@ pub fn build(b: *std.Build) !void {
     exe.addObjectFile(.{ .cwd_relative = ts_lib_c });
     exe.addObjectFile(.{ .cwd_relative = ts_parser_c });
     exe.addObjectFile(.{ .cwd_relative = ts_scanner_c });
+
+    // Conditionally link libxev if watcher is enabled
+    if (enable_watcher) {
+        const libxev_dep = b.dependency("libxev", .{});
+        exe.linkLibrary(libxev_dep.artifact("xev"));
+        exe.root_module.addImport("libxev", libxev_dep.module("xev"));
+    }
     // exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
 
     // Add tests from our integrated function
@@ -327,6 +362,7 @@ pub fn build(b: *std.Build) !void {
             .tree_sitter_typescript = tree_sitter_typescript_module,
             .tree_sitter_lib = tree_sitter,
             .tree_sitter_typescript_lib = tree_sitter_typescript,
+            .enable_watcher = enable_watcher,
         },
     );
 

@@ -33,10 +33,10 @@ jobs:
       new_version: ${{ steps.version.outputs.new_version }}
       current_version: ${{ steps.version.outputs.current_version }}
       changelog: ${{ steps.version.outputs.changelog }}
-    
+
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for version calculations
 
@@ -59,37 +59,24 @@ jobs:
         run: |
           CURRENT_VERSION="${{ steps.version.outputs.version }}"
           echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
-          
+
           if [[ "${{ github.event.inputs.force_bump }}" != "auto" && "${{ github.event.inputs.force_bump }}" != "" ]]; then
             NEW_VERSION=$(python3 .github/scripts/bump_version.py "${CURRENT_VERSION}" "${{ github.event.inputs.force_bump }}")
           else
             NEW_VERSION=$(python3 .github/scripts/bump_version.py "${CURRENT_VERSION}")
           fi
-          
+
           echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
           echo "Bumping version from ${CURRENT_VERSION} to ${NEW_VERSION}"
 
   release:
     needs: prepare
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-22.04
-            zig_target: x86_64-linux
-            exe_name: fuze-linux-x86_64
-          - os: macos-13
-            zig_target: aarch64-macos
-            exe_name: fuze-macos-arm64
-          - os: windows-2022
-            zig_target: x86_64-windows
-            exe_name: fuze-windows-x64.exe
-
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          python-version: '3.x'
+          fetch-depth: 0  # Fetch all history for GoReleaser
 
       - name: Set Up Git Config
         run: |
@@ -136,36 +123,12 @@ jobs:
       - name: Run Tests
         run: zig build test
 
-      - name: Build Release
-        run: |
-          zig build -Dtarget=${{ matrix.zig_target }} \
-                    -Doptimize=ReleaseSafe \
-                    -Dstrip=true \
-                    -Dcpu=baseline
-        env:
-          ZIG_GLOBAL_CACHE_DIR: ${{ runner.temp }}/zig-cache
-
-      - name: List Build Output
-        run: |
-          ls -la zig-out/bin/
-        shell: bash
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
         with:
-          name: ${{ matrix.exe_name }}
-          path: zig-out/bin/${{ matrix.exe_name }}
-          retention-days: 3
-
-      - name: Create Universal macOS Binary
-        if: matrix.os == 'macos-13'
-        run: |
-          lipo -create -output fuze-universal \
-            zig-out/bin/fuze-macos-* 
-        shell: bash
+          go-version: '1.21'
 
       - name: Create Release Tag
-        if: matrix.os == 'ubuntu-latest'
         run: |
           NEW_VERSION="${{ needs.prepare.outputs.new_version }}"
           git add build.zig.zon
@@ -173,17 +136,12 @@ jobs:
           git tag -a "v${NEW_VERSION}" -m "Release version ${NEW_VERSION}"
           git push origin "v${NEW_VERSION}"
 
-      - name: Create GitHub Release
-        if: matrix.os == 'ubuntu-latest'
-        uses: ncipollo/release-action@v1
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
         with:
-          tag: v${{ needs.prepare.outputs.new_version }}
-          name: Release v${{ needs.prepare.outputs.new_version }}
-          artifacts: "./zig-out/bin/fuze-linux-x64,./zig-out/bin/fuze-macos-arm64,./zig-out/bin/fuze-windows-x64.exe"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          draft: false
-          prerelease: false
-          body: |
-            ${{ needs.prepare.outputs.changelog }}
-            
-            ${{ join(github.event.commits.*.message, '\n') }}
+          distribution: goreleaser
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ needs.prepare.outputs.new_version }}

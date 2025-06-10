@@ -1,0 +1,14 @@
+{
+  "ignore": [
+    "zig-out",
+    "vendor"
+  ],
+  "rules": {
+    "unsafe-undefined": "error",
+    "homeless-try": "error",
+    "no-catch-return": "error",
+    "no-return-try": "error",
+    "line-length": "warn",
+    "empty-file": "warn"
+  }
+}

@@ -1,6 +1,9 @@
 const std = @import("std");
 const Project = @import("project.zig").Project;
 const Logger = @import("utils/log.zig").Logger;
+const bindings = @import("bindings/mod.zig");
+const watch_command = @import("commands/watch.zig");
+const analyze_command = @import("commands/analyze.zig");
 
 pub fn main() !void {
     // NOTE: Keep this main.zig minimal. We only parse CLI args and dispatch commands here.
@@ -13,21 +16,28 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    var cli_config = try @import("commands/cli.zig").parse(allocator) catch |err| {
+    var cli_config = try @import("commands/cli.zig").parse(allocator, null) catch |err| {
         if (err == error.HelpRequested) {
-            try @import("commands/cli.zig").printHelp();
+            try @import("commands/cli.zig").printHelp(null);
             return;
         }
+
+        // Print error message with appropriate help
+        try @import("commands/cli.zig").printError(err, std.io.getStdErr().writer(), null);
         return err;
+    };
+
+    // Check if help was requested
+    if (cli_config.help_requested) {
+        try @import("commands/cli.zig").printHelp(cli_config.command);
+        return;
     };
     defer cli_config.deinit(allocator);
 
     switch (cli_config.command) {
         .merge => try mergeCommand(allocator, cli_config),
-        .watch => {
-            Logger.init(.Error).err("Watch command not yet implemented", .{});
-            return error.NotImplemented;
-        },
+        .watch => try watch_command.execute(allocator, &cli_config),
+        .analyze => try analyze_command.execute(allocator, &cli_config),
     }
 }
 
@@ -117,7 +127,7 @@ fn mergeCommand(allocator: std.mem.Allocator, config: @import("commands/cli.zig"
     }
 
     logger.info("Writing to {s}...", .{target_file});
-    try project_instance.writeToFile(target_file);
+    try project_instance.writeToFile(target_file, null);
 
     Logger.scoped(.Info, "merge").info("Merge command completed successfully.", .{});
 }

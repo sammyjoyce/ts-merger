@@ -89,11 +89,18 @@ irm https://raw.githubusercontent.com/sammyjoyce/fuze/main/.github/scripts/insta
 ## Usage
 
 ```bash
-fuze [options]
+fuze [command] [options]
 ```
+
+### Commands
+
+- `merge`    Merge TypeScript files into a single file
+- `watch`    Watch files/directories and merge on changes
+- `analyze`  Analyze TypeScript files without modifying them
 
 ### Options
 
+#### Merge Command
 - `--dir <path>`          Target directory (default: current directory)
 - `--out <filename>`      Output filename (default: `merged.ts`)
 - `--recursive`           Process subdirectories recursively (default: `true`)
@@ -102,12 +109,33 @@ fuze [options]
 - `--sort-imports`        Sort import statements alphabetically (default: `true`)
 - `-h, --help`            Show help message
 
-### Example
+#### Watch Command
+- `-t, --target <path>`   Target output file path (required)
+- `-d, --delay <ms>`      Watch delay in milliseconds (default: 100)
+- `-r, --recursive`       Watch directories recursively
+- `-h, --help`            Show help message
+
+#### Analyze Command
+- `-h, --help`            Show help message
+
+### Examples
 
 Merge all TypeScript files in the `src` directory into a single file named `merged.ts`, excluding any files in the `tests` directory while preserving comments and sorting imports:
 
 ```bash
-fuze --dir src --out merged.ts --exclude tests
+fuze merge -t /path/to/merged.ts src/*.ts
+```
+
+Watch a directory for changes and automatically merge files:
+
+```bash
+fuze watch -t /path/to/merged.ts -r src/
+```
+
+Analyze TypeScript files for potential issues without modifying them:
+
+```bash
+fuze analyze src/*.ts
 ```
 
 ## Roadmap
@@ -126,7 +154,7 @@ Our roadmap outlines the key features and improvements planned for **Fuze**. Con
 
 - [x] **Basic Dependency Resolution:** Implemented import/export dependency tracking
 - [x] **Simple Ordering:** Basic two-pass ordering system (exports first)
-- [ ] **Dependency-based Ordering:** Implement topological sorting and circular dependency resolution
+- [x] **Dependency-based Ordering:** Implement topological sorting and circular dependency resolution
 - [ ] **Smart Code Organization:** Group related declarations and maintain logical code blocks
 - [ ] **Reference-based Positioning:** Place code based on usage patterns and references
 - [ ] **Enhanced Dependency Resolution:** Add support for complex import patterns and circular dependencies
@@ -137,9 +165,9 @@ Our roadmap outlines the key features and improvements planned for **Fuze**. Con
 - [x] **Sort Imports:** Implemented configurable import sorting
 - [x] **Basic Import Organization:** Group imports by type
 - [ ] **Advanced Import Organization:** Intelligently organize imports by scope (built-in, external, internal)
-- [ ] **Import Path Optimization:** Simplify and normalize import paths
-- [ ] **Remove Redundancies:** Eliminate redundant import statements
-- [ ] **Dead Code Elimination:** Remove unused imports and code
+- [x] **Import Path Optimization:** Simplify and normalize import paths
+- [x] **Remove Redundancies:** Eliminate redundant import statements
+- [x] **Dead Code Elimination:** Remove unused imports and code
 
 ### Code Quality & Preservation
 
@@ -153,4 +181,4 @@ Our roadmap outlines the key features and improvements planned for **Fuze**. Con
 - [ ] **Incremental Processing:** Only reprocess modified files and their dependents
 - [x] **File Watching:** Implemented file system watching for automatic updates
 - [ ] **Watch Mode:** Automatically reprocess files on changes with caching
-- [ ] **Progress Reporting:** Add detailed progress and status information
+- [x] **Progress Reporting:** Add detailed progress and status information

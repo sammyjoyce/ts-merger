@@ -1,0 +1,90 @@
+# GoReleaser configuration for Fuze (Zig project)
+# This configuration is based on GoReleaser's support for Zig projects
+
+project_name: fuze
+
+# Build environment variables
+env:
+  - GO111MODULE=on
+
+# Build settings
+builds:
+  - id: fuze
+    binary: fuze
+    main: ./
+    builder: custom
+    dir: .
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    custom:
+      # Custom build command for Zig
+      build: |
+        zig build -Dtarget={{ if eq .Os "darwin" }}{{ if eq .Arch "amd64" }}x86_64-macos{{ else }}aarch64-macos{{ end }}{{ else if eq .Os "linux" }}{{ if eq .Arch "amd64" }}x86_64-linux{{ else }}aarch64-linux{{ end }}{{ else }}x86_64-windows{{ end }} -Doptimize=ReleaseSafe -Dstrip=true -Dcpu=baseline -Dname={{ .Binary }}{{ if eq .Os "windows" }}.exe{{ end }}
+      # Custom output path for Zig
+      output: zig-out/bin/{{ .Binary }}{{ if eq .Os "windows" }}.exe{{ end }}
+
+# Archive settings
+archives:
+  - id: fuze
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE*
+      - README*
+      - CHANGELOG*
+
+# Checksum settings
+checksum:
+  name_template: "{{ .ProjectName }}-{{ .Version }}-checksums.txt"
+  algorithm: sha256
+
+# Snapshot settings
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+# Changelog settings
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+# Release settings
+release:
+  github:
+    owner: sammyjoyce
+    name: fuze
+  prerelease: auto
+  draft: false
+  name_template: "{{ .ProjectName }} v{{ .Version }}"
+
+# Homebrew settings (optional)
+brews:
+  - name: fuze
+    tap:
+      owner: sammyjoyce
+      name: homebrew-fuze
+    folder: Formula
+    homepage: https://github.com/sammyjoyce/fuze
+    description: A robust command-line tool that merges TypeScript source files into a single file
+    license: MIT
+    test: |
+      system "#{bin}/fuze --version"
+    install: |
+      bin.install "fuze"

@@ -4,40 +4,79 @@ const fs = std.fs;
 const json = std.json;
 const mem = std.mem;
 const Allocator = mem.Allocator;
+const clap = @import("clap");
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    var args = try std.process.argsWithAllocator(allocator);
-    defer args.deinit();
+    // Define command-line parameters
+    const params = comptime clap.parseParamsComptime(
+        \\-h, --help                 Display this help and exit
+        \\-l, --language <str>       Language name
+        \\-o, --output <str>         Output file path
+        \\-n, --node-types <str>     Path to node-types.json file
+        \\
+    );
 
-    _ = args.next(); // Skip executable name
+    // Initialize diagnostics for better error reporting
+    var diag = clap.Diagnostic{};
+    var res = clap.parse(clap.Help, &params, clap.parsers.default, .{
+        .allocator = allocator,
+        .diagnostic = &diag,
+    }) catch |err| {
+        // Report error and exit
+        diag.report(std.io.getStdErr().writer(), err) catch {};
+        return err;
+    };
+    defer res.deinit();
 
-    var language: []const u8 = undefined;
-    var output_path: []const u8 = undefined;
-    var node_types_path: []const u8 = undefined;
-
-    while (args.next()) |arg| {
-        if (std.mem.eql(u8, arg, "--language")) {
-            language = args.next() orelse return error.MissingLanguageArg;
-        } else if (std.mem.eql(u8, arg, "--output")) {
-            output_path = args.next() orelse return error.MissingOutputArg;
-        } else if (std.mem.eql(u8, arg, "--node-types")) {
-            node_types_path = args.next() orelse return error.MissingNodeTypesArg;
-        }
+    // Handle help request
+    if (res.args.help != 0) {
+        try printHelp();
+        return;
     }
 
-    if (!@hasDecl(@This(), "language") or
-        !@hasDecl(@This(), "output_path") or
-        !@hasDecl(@This(), "node_types_path"))
-    {
-        std.debug.print("Usage: grammar_gen --language <lang> --output <path> --node-types <node-types.json>\n", .{});
-        return error.MissingArguments;
-    }
+    // Get required arguments
+    const language = res.args.language orelse {
+        std.debug.print("Error: Missing required argument --language\n", .{});
+        try printHelp();
+        return error.MissingLanguageArg;
+    };
+
+    const output_path = res.args.output orelse {
+        std.debug.print("Error: Missing required argument --output\n", .{});
+        try printHelp();
+        return error.MissingOutputArg;
+    };
+
+    const node_types_path = res.args.@"node-types" orelse {
+        std.debug.print("Error: Missing required argument --node-types\n", .{});
+        try printHelp();
+        return error.MissingNodeTypesArg;
+    };
 
     try generateGrammarBindings(allocator, node_types_path, output_path);
+}
+
+fn printHelp() !void {
+    const stderr = std.io.getStdErr().writer();
+    try stderr.writeAll(
+        \\grammar_gen - Generate Zig bindings from Tree-sitter grammar
+        \\
+        \\Usage: grammar_gen [options]
+        \\
+        \\Options:
+        \\  -h, --help                 Display this help and exit
+        \\  -l, --language <str>       Language name
+        \\  -o, --output <str>         Output file path
+        \\  -n, --node-types <str>     Path to node-types.json file
+        \\
+        \\Example:
+        \\  grammar_gen --language typescript --output src/bindings/typescript.zig --node-types node-types.json
+        \\
+    );
 }
 
 pub const GrammarError = error{
@@ -77,7 +116,9 @@ pub fn generateGrammarBindings(allocator: Allocator, node_types_path: []const u8
         if (node_type.fields) |fields| {
             try w.print("    pub const {s}_FIELDS = struct {{\n", .{std.ascii.upperString(node_type.type)});
             for (fields.types) |field_type| {
-                try w.print("        pub const {s}: bool = {s};\n", .{ std.ascii.upperString(field_type.type), if (fields.required) "true" else "false" });
+                const field_name = std.ascii.upperString(field_type.type);
+                const is_required = if (fields.required) "true" else "false";
+                try w.print("        pub const {s}: bool = {s};\n", .{ field_name, is_required });
             }
             try w.writeAll("    };\n");
         }

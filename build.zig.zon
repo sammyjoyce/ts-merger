@@ -1,16 +1,20 @@
 .{
-    .name = "fuze",
+    .fingerprint = 0x853bd9d364ee580f,
+    .name = .fuze,
     .version = "0.0.1",
-    .minimum_zig_version = "0.14.0-dev.2851+b074fb7dd",
     .dependencies = .{
         .clap = .{
-            .url = "git+https://github.com/Hejsil/zig-clap#560c8dd72ab25d556123846254040c5bf9ad3ba4",
-            .hash = "12200abadc141099ff2ba5098f7eca9bf84d548dd92ec5827ef323d813d59b049780",
+            .url = "git+https://github.com/Hejsil/zig-clap#e47028deaefc2fb396d3d9e9f7bd776ae0b2a43a",
+            .hash = "clap-0.10.0-oBajB434AQBDh-Ei3YtoKIRxZacVPF1iSwp3IX_ZB8f0",
         },
         .tree_sitter = .{
             .path = "./pkg/tree-sitter",
         },
         .tree_sitter_typescript = .{ .path = "./pkg/tree-sitter-typescript" },
+        .libxev = .{
+            .url = "git+https://github.com/mitchellh/libxev/#94ed6af7b2aaaeab987fbf87fcee410063df715b",
+            .hash = "libxev-0.0.0-86vtc-zkEgB7uv1i0Sa6ytJETZQi_lHJrImu9mLb9moi",
+        },
     },
     .paths = .{""},
 }

@@ -1,6 +1,6 @@
 const std = @import("std");
 const bindings = @import("../bindings/mod.zig");
-const ast_types = @import("../core/ast/ast_types.zig");
+
 const testing = std.testing;
 
 // Re-export the LanguageMetadata and NodeTypeInfo from bindings

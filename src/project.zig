@@ -3,19 +3,45 @@ const ast_types = @import("core/ast/ast_types.zig");
 const parser_mod = @import("parser/mod.zig");
 const LanguageRegistry = @import("bindings/language.zig").LanguageRegistry;
 const Logger = @import("utils/log.zig").Logger;
+const Flow = @import("core/flow.zig").Flow;
+const ProgressReporter = @import("utils/progress.zig").ProgressReporter;
+
+const MergeRules = @import("core/merge/rules.zig").MergeRules;
 
 pub const Project = struct {
     allocator: std.mem.Allocator,
     lang_registry: *LanguageRegistry,
     ast_root: *ast_types.Node,
     owned_nodes: std.ArrayList(*ast_types.Node),
+    flow: *Flow,
+    merge_rules: MergeRules,
 
     pub fn init(allocator: std.mem.Allocator, lang_registry: *LanguageRegistry) !Project {
         return .{
             .allocator = allocator,
             .lang_registry = lang_registry,
-            .ast_root = try ast_types.Node.init(allocator),
+            .ast_root = try ast_types.Node.init(allocator, "root", .{ .base = .program, .custom_kind = null, .source = null }),
             .owned_nodes = std.ArrayList(*ast_types.Node).init(allocator),
+            .flow = try Flow.init(allocator),
+            .merge_rules = .{
+                .preserve_comments = true,
+                .sort_imports = true,
+                .remove_redundancies = true,
+                .optimize_import_paths = true,
+            },
+        };
+    }
+
+    pub fn initWithRules(allocator: std.mem.Allocator, lang_registry: *LanguageRegistry, merge_rules: MergeRules) !Project {
+        var flow_instance = try Flow.initWithRules(allocator, merge_rules);
+
+        return .{
+            .allocator = allocator,
+            .lang_registry = lang_registry,
+            .ast_root = try ast_types.Node.init(allocator, "root", .{ .base = .program, .custom_kind = null, .source = null }),
+            .owned_nodes = std.ArrayList(*ast_types.Node).init(allocator),
+            .flow = flow_instance,
+            .merge_rules = merge_rules,
         };
     }
 
@@ -26,6 +52,7 @@ pub const Project = struct {
             self.allocator.destroy(node);
         }
         self.owned_nodes.deinit();
+        self.flow.deinit();
     }
 
     pub fn getNodes(self: *Project) []const *ast_types.Node {
@@ -63,15 +90,40 @@ pub const Project = struct {
     }
 
     fn mergeAst(self: *Project, new_node: *ast_types.Node) !void {
+        // Add node to flow for dependency analysis
+        try self.flow.nodes.append(new_node);
+
         // Existing merge logic adapted for language-aware nodes
         try self.ast_root.merge(new_node);
         try self.owned_nodes.append(new_node);
     }
 
-    pub fn writeToFile(self: *Project, file_path: []const u8) !void {
-        const output = try self.ast_root.serialize(self.allocator);
-        defer self.allocator.free(output);
+    pub fn writeToFile(self: *Project, file_path: []const u8, progress_reporter: ?*ProgressReporter) !void {
+        // Check if we have nodes in the flow graph
+        if (self.flow.nodes.items.len > 0) {
+            // Use topological sorting for dependency-based ordering
+            Logger.scoped(.Info, "project").info("Using dependency-based ordering for output", .{});
+            try self.flow.writeToFile(file_path, progress_reporter);
+        } else {
+            // Fallback to original serialization if no nodes in flow graph
+            Logger.scoped(.Info, "project").info("Using standard serialization for output", .{});
 
-        try std.fs.cwd().writeFile(file_path, output);
+            if (progress_reporter) |reporter| {
+                reporter.update(reporter.current_step, "Serializing AST");
+            }
+
+            const output = try self.ast_root.serialize(self.allocator);
+            defer self.allocator.free(output);
+
+            if (progress_reporter) |reporter| {
+                reporter.update(reporter.current_step, "Writing to file");
+            }
+
+            try std.fs.cwd().writeFile(file_path, output);
+
+            if (progress_reporter) |reporter| {
+                reporter.update(reporter.current_step, "File writing complete");
+            }
+        }
     }
 };

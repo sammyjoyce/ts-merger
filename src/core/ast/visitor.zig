@@ -1,4 +1,3 @@
-const std = @import("std");
 const Node = @import("../ast/ast_types.zig").Node;
 
 pub const Visitor = struct {
